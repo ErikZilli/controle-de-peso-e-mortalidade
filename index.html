@@ -125,6 +125,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
+const VERSAO = "1.7";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -313,6 +314,7 @@ function telaAviarios(adicionando = false) {
   } else {
     $("#novoAv").onclick = () => { tipoSel = TIPOS[0]; telaAviarios(true); };
   }
+  app.insertAdjacentHTML("beforeend", `<p class="hint">Versão ${VERSAO}</p>`);
   app.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => {
     const sw = b.closest(".swipe");
     if (sw._bloq) return;
@@ -539,7 +541,7 @@ function montarPdf() {
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
   doc.text(fmtI(totalLote(lt)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
   doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-  doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade", M, 288);
+  doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade (versão " + VERSAO + ")", M, 288);
   return doc;
 }
 async function compartilharPdf() {
