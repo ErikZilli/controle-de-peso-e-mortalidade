@@ -95,6 +95,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .seg button { border: 1px solid var(--line); background: var(--field); border-radius: 14px; min-height: 48px; font-weight: 700; font-size: 14px; color: var(--mute); padding: 0 6px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.modal { position: fixed; inset: 0; background: rgba(15, 23, 30, .55); display: grid; place-items: center; padding: 20px; z-index: 50; }
+.dlg { background: var(--card); border-radius: 24px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+.dlg h2 { font-size: 20px; }
+.dlg p { margin: 0; color: var(--mute); font-size: 15px; }
+.dbtn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: 90vw; text-align: center; }
 .toast[hidden] { display: none; }
 </style>
@@ -118,6 +123,7 @@ let memoria = null;
 function carregar() {
   try { const t = localStorage.getItem(KEY); if (t) db = JSON.parse(t); } catch (e) { if (memoria) db = memoria; }
   if (!db || !Array.isArray(db.aviarios)) db = { aviarios: [] };
+  db.aviarios.forEach((a) => (a.lotes || []).forEach((l) => { l.lote = String(l.lote ?? "").replace(/\D/g, ""); }));
 }
 function salvar() {
   memoria = db;
@@ -157,6 +163,20 @@ function campo(id, rotulo, valor, o = {}) {
   return `<div class="f"><label for="${id}">${rotulo}</label><div class="inp"><input id="${id}" value="${esc(valor)}" inputmode="${o.mode || "decimal"}" ${o.ph ? `placeholder="${o.ph}"` : ""} autocomplete="off">${o.u ? `<span class="u">${o.u}</span>` : ""}</div></div>`;
 }
 
+const nomeLote = (l) => "Lote " + (l.lote || "sem número");
+function perguntar(titulo, texto, simTxt, naoTxt) {
+  return new Promise((resolve) => {
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">${esc(titulo)}</h2><p>${esc(texto)}</p><div class="dbtn"><button class="btn ghost" id="dn">${esc(naoTxt)}</button><button class="btn" id="ds">${esc(simTxt)}</button></div></div>`;
+    document.body.appendChild(m);
+    const fim = (r) => { m.remove(); resolve(r); };
+    $("#ds", m).onclick = () => fim(true);
+    $("#dn", m).onclick = () => fim(false);
+    $("#dn", m).focus();
+  });
+}
+
 // Peso: digitou 0 (ou 0 seguido de número), a vírgula entra sozinha: 0959 vira 0,959. Apagar continua livre.
 function maskPeso(e) {
   if (e.inputType && !e.inputType.startsWith("insert")) return;
@@ -169,6 +189,8 @@ function maskPeso(e) {
 
 // voltar do Android / gesto
 window.__back = () => {
+  const aviso = document.querySelector(".modal #dn");
+  if (aviso) { aviso.click(); return true; }
   if (tela === "registro") { irLotes(); return true; }
   if (tela === "lotes") { irAviarios(); return true; }
   return false;
@@ -215,8 +237,8 @@ function irLotes() { tela = "lotes"; lt = null; telaLotes(); }
 function linhaLote(l) {
   const p = pctMortos(l);
   const feito = DIAS.filter((d) => l.pesos[d]).length;
-  return `<button class="row" data-lt="${l.id}"><div class="ico">${esc((l.lote.match(/\d+/) || [l.lote.charAt(0).toUpperCase() || "L"])[0])}</div>
-  <div class="tx"><b>${esc(l.lote)}</b><span>Alojado em ${brData(l.data)} · dia ${diasDe(l.data)} · ${fmtI(num(l.alojada))} aves</span>
+  return `<button class="row" data-lt="${l.id}"><div class="ico">${esc(l.lote || "?")}</div>
+  <div class="tx"><b>${esc(nomeLote(l))}</b><span>Alojado em ${brData(l.data)} · dia ${diasDe(l.data)} · ${fmtI(num(l.alojada))} aves</span>
   <span>${feito} de 5 pesagens · cama ${num(l.cama) || "–"}ª vez</span></div>
   <span class="chip ${p > 4 ? "warn" : ""}">${fmt(p, 2)}% mortos</span></button>`;
 }
@@ -240,7 +262,7 @@ function telaLotes(editando = false) {
   const nl = $("#novoLote");
   if (nl) nl.onclick = () => {
     const ultimo = antigos[0];
-    const n = { id: novoId(), lote: "Lote " + (av.lotes.length + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: { mortos: 0, caq: 0, prob: 0, outros: 0 }, encerrado: false };
+    const n = { id: novoId(), lote: String(Math.max(0, ...av.lotes.map((x) => num(x.lote))) + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: { mortos: 0, caq: 0, prob: 0, outros: 0 }, encerrado: false };
     av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
   };
   app.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { lt = av.lotes.find((l) => l.id == b.dataset.lt); idade = idadeAtual(lt); tela = "registro"; telaRegistro(); }));
@@ -259,13 +281,13 @@ function confirmar(sel, rotulo, aviso, fn) {
 // ---------- tela 3: registro do lote ----------
 function telaRegistro() {
   const o = lt.oc;
-  app.innerHTML = topo("Registro do lote", av.nome + " · " + lt.lote, true, `<span class="pill" id="estado">${lt.encerrado ? "Encerrado" : "Em andamento"}</span>`) +
+  app.innerHTML = topo("Registro do lote", av.nome + " · " + nomeLote(lt), true, `<span class="pill" id="estado">${lt.encerrado ? "Encerrado" : "Em andamento"}</span>`) +
     `<section class="card"><div class="card-head"><div class="step">01</div><div><h2>Dados do lote</h2><p>Informações gerais do alojamento</p></div></div>
       <div class="grid2">
         ${campo("f-data", "Data aloja.", brData(lt.data), { mode: "numeric", ph: "dd/mm/aaaa" })}
         ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "0" })}
         ${campo("f-cama", "Cama (nº de usos)", lt.cama || "", { mode: "numeric", ph: "1" })}
-        ${campo("f-lote", "Lote", lt.lote, { mode: "text" })}
+        ${campo("f-lote", "Lote (número)", lt.lote, { mode: "numeric", ph: "1" })}
         ${campo("f-pinto", "Peso pinto (referência)", fmt(lt.pinto), { u: "kg" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>O recomendado é calculado a partir do peso pinto</p></div></div>
@@ -291,18 +313,34 @@ function telaRegistro() {
   calcular(false);
 
   const ligar = (id, fn) => $(id).addEventListener("input", (e) => { fn(e.target.value); salvar(); calcular(true); });
-  $("#f-data").addEventListener("input", (e) => {
+  const fData = $("#f-data");
+  fData.addEventListener("input", (e) => {
     const d = e.target.value.replace(/\D/g, "").slice(0, 8);
     e.target.value = d.length > 4 ? d.slice(0, 2) + "/" + d.slice(2, 4) + "/" + d.slice(4) : d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d;
+  });
+  // Só troca a data depois de confirmar. Em branco, pergunta se pode usar a data de hoje.
+  fData.addEventListener("change", async () => {
+    const d = fData.value.replace(/\D/g, "");
+    const volta = () => { fData.value = brData(lt.data); };
+    if (d.length === 0) {
+      const hoje = isoHoje();
+      if (hoje !== lt.data && await perguntar("Data em branco", "Usar a data de hoje (" + brData(hoje) + ") como data de alojamento?", "Sim, usar hoje", "Não")) { lt.data = hoje; salvar(); }
+      volta(); calcular(true); return;
+    }
+    let nova = null;
     if (d.length === 8) {
       const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4);
       const dt = new Date(ano, mes - 1, dia);
-      if (dt.getFullYear() === ano && dt.getMonth() === mes - 1 && dt.getDate() === dia) { lt.data = ano + "-" + d.slice(2, 4) + "-" + d.slice(0, 2); salvar(); }
+      if (dt.getFullYear() === ano && dt.getMonth() === mes - 1 && dt.getDate() === dia) nova = ano + "-" + d.slice(2, 4) + "-" + d.slice(0, 2);
     }
-    calcular(true);
+    if (!nova) { toast("Data inválida. Use dia/mês/ano"); volta(); return; }
+    if (nova === lt.data) { volta(); return; }
+    if (await perguntar("Trocar a data de alojamento?", "De " + brData(lt.data) + " para " + brData(nova) + ". Isso muda a idade e o dia do lote.", "Sim, trocar", "Não, manter")) { lt.data = nova; salvar(); }
+    volta(); calcular(true);
   });
   ligar("#f-alojada", (v) => (lt.alojada = num(v)));
   ligar("#f-cama", (v) => (lt.cama = num(v)));
+  $("#f-lote").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
   ligar("#f-lote", (v) => (lt.lote = v));
   $("#f-pinto").addEventListener("input", maskPeso);
   $("#f-peso").addEventListener("input", maskPeso);
@@ -341,7 +379,7 @@ function montarPdf() {
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
   doc.text("Controle de peso e mortalidade", M, 16);
   doc.setFont("helvetica", "normal"); doc.setFontSize(12);
-  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + lt.lote, M, 26);
+  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + nomeLote(lt), M, 26);
   doc.setTextColor(20, 34, 47);
   let y = 46;
   const par = (a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, M, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, M, y + 6); };
@@ -387,8 +425,8 @@ function montarPdf() {
 async function compartilharPdf() {
   try {
     const doc = montarPdf();
-    const nome = (av.nome + " - " + lt.lote).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
-    const msg = av.nome + " | " + lt.lote + " | alojado em " + brData(lt.data);
+    const nome = (av.nome + " - " + nomeLote(lt)).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
+    const msg = av.nome + " | " + nomeLote(lt) + " | alojado em " + brData(lt.data);
     if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(doc.output("datauristring").split(",")[1], nome, msg); return; }
     const arq = new File([doc.output("blob")], nome, { type: "application/pdf" });
     if (navigator.canShare && navigator.canShare({ files: [arq] })) { await navigator.share({ files: [arq], title: nome, text: msg }); }
