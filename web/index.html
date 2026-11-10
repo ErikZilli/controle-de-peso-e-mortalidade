@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.11";
+const VERSAO = "1.12";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -413,21 +413,21 @@ function telaRegistro() {
         ${campo("f-lote", "Lote (número)", lt.lote, { mode: "numeric", ph: "1" })}
         ${campo("f-pinto", "Peso pinto (referência)", fmt(lt.pinto), { u: "kg" })}
       </div></section>
-    <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>O recomendado é calculado a partir do peso pinto</p></div></div>
+    <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
-      <div class="rec"><div><span class="l">Peso recomendado</span><span class="v" id="rec"></span></div>
+      <div class="rec"><div><span class="l">Peso referência</span><span class="v" id="rec"></span></div>
         <div><span class="l">Multiplicador</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
       ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "0,000" })}
       <div class="delta" id="delta"></div></section>
-    <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Ocorrências</h2><p>Aos ${idade} dias. Cada idade tem a sua.</p></div></div>
+    <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Mortalidade</h2><p>Aos ${idade} dias. Cada idade tem a sua.</p></div></div>
       <div class="grid2">
-        ${campo("o-mortos", "Mortos", o.mortos || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-mortos", "Natural", o.mortos || "", { mode: "numeric", ph: "0" })}
         ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
         ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div></section>
     <section class="sum"><div><div class="l">Total do lote</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
-      <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">mortos ÷ alojadas, todas as idades</div></div></section>
+      <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
     <button class="btn" id="salvar">Salvar registro</button>
     <p class="hint">Tudo é salvo no aparelho conforme você digita.</p>
     <button class="btn ghost" id="pdf">Compartilhar PDF no WhatsApp</button>
@@ -487,10 +487,10 @@ function calcular(editou) {
   const rec = recomendado(lt, idade);
   $("#rec").innerHTML = fmt(rec) + " <small>kg</small>";
   $("#mult").textContent = fmt(MULT[idade], 1) + "×";
-  $("#base").textContent = idade === 7 ? "do peso do pinto" : "do recomendado aos " + ANT[idade] + " dias";
+  $("#base").textContent = idade === 7 ? "do peso do pinto" : "da referência aos " + ANT[idade] + " dias";
   const p = lt.pesos[idade], dl = $("#delta");
-  if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação ao recomendado"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
-  else { dl.textContent = "Digite o peso para comparar com o recomendado."; dl.className = "delta"; }
+  if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação à referência"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
+  else { dl.textContent = "Digite o peso para comparar com a referência."; dl.className = "delta"; }
   $("#tot").textContent = fmtI(totalLote(lt));
   $("#totS").textContent = "aos " + idade + " dias: " + fmtI(totalOc(lt.oc[idade]));
   $("#pct").textContent = num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "–";
@@ -524,7 +524,7 @@ function montarPdf() {
   const cols = [M, M + 28, M + 76, M + 124, M + 156];
   doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 9, "F");
   doc.setFontSize(10); doc.setTextColor(29, 98, 114);
-  ["Idade", "Peso recomendado", "Peso real", "Diferença"].forEach((t, i) => doc.text(t, cols[i] + 2, y + 6));
+  ["Idade", "Peso referência", "Peso real", "Diferença"].forEach((t, i) => doc.text(t, cols[i] + 2, y + 6));
   y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
   DIAS.forEach((d) => {
     const rec = recomendado(lt, d), p = lt.pesos[d];
@@ -536,11 +536,11 @@ function montarPdf() {
     y += 10;
   });
   y += 12;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Ocorrências por idade", M, y); y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Mortalidade", M, y); y += 4;
   const oc = [M, M + 28, M + 64, M + 100, M + 130, M + 156];
   doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 9, "F");
   doc.setFontSize(10); doc.setTextColor(29, 98, 114);
-  ["Idade", "Mortos", "Caq. / Ref.", "Prob. loc.", "Outros", "Total"].forEach((t, i) => doc.text(t, oc[i] + 2, y + 6));
+  ["Idade", "Natural", "Caq. / Ref.", "Prob. loc.", "Outros", "Total"].forEach((t, i) => doc.text(t, oc[i] + 2, y + 6));
   y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
   DIAS.forEach((d) => {
     const o = lt.oc[d];
@@ -558,7 +558,7 @@ function montarPdf() {
   y += 10;
   doc.setFillColor(34, 56, 83); doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, "F");
   doc.setTextColor(159, 176, 195); doc.setFontSize(9);
-  doc.text("TOTAL DO LOTE (todas as idades)", M + 8, y + 9); doc.text("% MORTOS (mortos ÷ alojadas)", M + 100, y + 9);
+  doc.text("TOTAL DO LOTE (todas as idades)", M + 8, y + 9); doc.text("% MORTOS", M + 100, y + 9);
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
   doc.text(fmtI(totalLote(lt)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
   doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
