@@ -99,6 +99,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dlg { background: var(--card); border-radius: 24px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
 .dlg h2 { font-size: 20px; }
 .dlg p { margin: 0; color: var(--mute); font-size: 15px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
 .dbtn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: 90vw; text-align: center; }
 .toast[hidden] { display: none; }
@@ -174,6 +175,24 @@ function perguntar(titulo, texto, simTxt, naoTxt) {
     $("#ds", m).onclick = () => fim(true);
     $("#dn", m).onclick = () => fim(false);
     $("#dn", m).focus();
+  });
+}
+
+// Exclusão protegida: só habilita o botão depois de digitar "excluir".
+function digitarParaExcluir(titulo, texto) {
+  return new Promise((resolve) => {
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">${esc(titulo)}</h2><p>${esc(texto)}</p>
+      <div class="f"><label for="dig">Para confirmar, digite <b>excluir</b></label><div class="inp"><input id="dig" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="excluir"></div></div>
+      <div class="dbtn"><button class="btn ghost" id="dn">Cancelar</button><button class="btn danger" id="ds" disabled>Excluir</button></div></div>`;
+    document.body.appendChild(m);
+    const dig = $("#dig", m), ds = $("#ds", m);
+    const fim = (r) => { m.remove(); resolve(r); };
+    dig.addEventListener("input", () => { ds.disabled = dig.value.trim().toLowerCase() !== "excluir"; });
+    ds.onclick = () => { if (!ds.disabled) fim(true); };
+    $("#dn", m).onclick = () => fim(false);
+    dig.focus();
   });
 }
 
@@ -266,9 +285,11 @@ function telaLotes(editando = false) {
     av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
   };
   app.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { lt = av.lotes.find((l) => l.id == b.dataset.lt); idade = idadeAtual(lt); tela = "registro"; telaRegistro(); }));
-  confirmar("#exAv", "Excluir aviário", "Toque de novo para excluir " + av.nome + " e todos os lotes", () => {
-    db.aviarios = db.aviarios.filter((a) => a !== av); salvar(); irAviarios(); toast("Aviário excluído");
-  });
+  $("#exAv").onclick = async () => {
+    if (await digitarParaExcluir("Excluir " + av.nome + "?", "Isso apaga o aviário e " + (av.lotes.length === 0 ? "nenhum lote será perdido" : av.lotes.length === 1 ? "o lote dele" : "os " + av.lotes.length + " lotes dele") + ". Não dá pra desfazer.")) {
+      db.aviarios = db.aviarios.filter((a) => a !== av); salvar(); irAviarios(); toast("Aviário excluído");
+    }
+  };
 }
 function confirmar(sel, rotulo, aviso, fn) {
   const b = $(sel); let armado = false;
@@ -353,7 +374,11 @@ function telaRegistro() {
   $("#pdf").onclick = compartilharPdf;
   const enc = $("#encerrar");
   if (enc) confirmar("#encerrar", "Encerrar lote (abate)", "Toque de novo para encerrar este lote", () => { lt.encerrado = true; salvar(); irLotes(); toast("Lote encerrado. Já pode criar o próximo"); });
-  confirmar("#exLote", "Excluir lote", "Toque de novo para excluir este lote", () => { av.lotes = av.lotes.filter((l) => l !== lt); salvar(); irLotes(); toast("Lote excluído"); });
+  $("#exLote").onclick = async () => {
+    if (await digitarParaExcluir("Excluir " + nomeLote(lt) + "?", "Isso apaga o lote e todos os pesos e ocorrências dele. Não dá pra desfazer.")) {
+      av.lotes = av.lotes.filter((l) => l !== lt); salvar(); irLotes(); toast("Lote excluído");
+    }
+  };
 }
 
 function calcular(editou) {
