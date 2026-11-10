@@ -134,7 +134,9 @@ let memoria = null;
 function carregar() {
   try { const t = localStorage.getItem(KEY); if (t) db = JSON.parse(t); } catch (e) { if (memoria) db = memoria; }
   if (!db || !Array.isArray(db.aviarios)) db = { aviarios: [] };
-  db.aviarios.forEach((a) => (a.lotes || []).forEach((l) => { l.lote = String(l.lote ?? "").replace(/\D/g, ""); }));
+  db.aviarios.forEach((a) => (a.lotes || []).forEach((l) => { l.lote = String(l.lote ?? "").replace(/\D/g, "");
+    if (!l.oc || "mortos" in l.oc || "caq" in l.oc || "prob" in l.oc || "outros" in l.oc) l.oc = l.oc && Object.keys(l.oc).length ? { 7: l.oc } : {};
+  }));
 }
 function salvar() {
   memoria = db;
@@ -155,8 +157,10 @@ const fmtI = (n) => n.toLocaleString("pt-BR");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const brData = (d) => d.split("-").reverse().join("/");
 const diasDe = (data) => Math.max(0, Math.floor((new Date(isoHoje() + "T00:00:00") - new Date(data + "T00:00:00")) / 864e5));
-const totalOc = (o) => num(o.mortos) + num(o.caq) + num(o.prob) + num(o.outros);
-const pctMortos = (l) => (num(l.alojada) > 0 ? (num(l.oc.mortos) / num(l.alojada)) * 100 : 0);
+const totalOc = (o) => (o ? num(o.mortos) + num(o.caq) + num(o.prob) + num(o.outros) : 0);
+const somaOc = (l, campo) => DIAS.reduce((t, d) => t + num((l.oc[d] || {})[campo]), 0);
+const totalLote = (l) => DIAS.reduce((t, d) => t + totalOc(l.oc[d]), 0);
+const pctMortos = (l) => (num(l.alojada) > 0 ? (somaOc(l, "mortos") / num(l.alojada)) * 100 : 0);
 const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d <= x) || 35; };
 function recomendado(l, d) {
   if (d === 7) return l.pinto * MULT[7];
@@ -356,7 +360,7 @@ function telaLotes(editando = false) {
   const nl = $("#novoLote");
   if (nl) nl.onclick = () => {
     const ultimo = antigos[0];
-    const n = { id: novoId(), lote: String(Math.max(0, ...av.lotes.map((x) => num(x.lote))) + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: { mortos: 0, caq: 0, prob: 0, outros: 0 }, encerrado: false };
+    const n = { id: novoId(), lote: String(Math.max(0, ...av.lotes.map((x) => num(x.lote))) + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: {}, encerrado: false };
     av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
   };
   app.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { lt = av.lotes.find((l) => l.id == b.dataset.lt); idade = idadeAtual(lt); tela = "registro"; telaRegistro(); }));
@@ -376,7 +380,7 @@ function confirmar(sel, rotulo, aviso, fn) {
 
 // ---------- tela 3: registro do lote ----------
 function telaRegistro() {
-  const o = lt.oc;
+  const o = lt.oc[idade] || {};
   app.innerHTML = topo("Registro do lote", av.nome + " · " + nomeLote(lt), true, `<span class="pill" id="estado">${lt.encerrado ? "Encerrado" : "Em andamento"}</span>`) +
     `<section class="card"><div class="card-head"><div class="step">01</div><div><h2>Dados do lote</h2><p>Informações gerais do alojamento</p></div></div>
       <div class="grid2">
@@ -387,20 +391,20 @@ function telaRegistro() {
         ${campo("f-pinto", "Peso pinto (referência)", fmt(lt.pinto), { u: "kg" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>O recomendado é calculado a partir do peso pinto</p></div></div>
-      <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
+      <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
       <div class="rec"><div><span class="l">Peso recomendado</span><span class="v" id="rec"></span></div>
         <div><span class="l">Multiplicador</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
       ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "0,000" })}
       <div class="delta" id="delta"></div></section>
-    <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Ocorrências</h2><p>Total do lote até agora</p></div></div>
+    <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Ocorrências</h2><p>Aos ${idade} dias. Cada idade tem a sua.</p></div></div>
       <div class="grid2">
         ${campo("o-mortos", "Mortos", o.mortos || "", { mode: "numeric", ph: "0" })}
         ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
         ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div></section>
-    <section class="sum"><div><div class="l">Total de ocorrências</div><div class="v" id="tot"></div><div class="s">soma das ocorrências</div></div>
-      <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">mortos ÷ alojadas</div></div></section>
+    <section class="sum"><div><div class="l">Total do lote</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
+      <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">mortos ÷ alojadas, todas as idades</div></div></section>
     <button class="btn" id="salvar">Salvar registro</button>
     <p class="hint">Tudo é salvo no aparelho conforme você digita.</p>
     <button class="btn ghost" id="pdf">Compartilhar PDF no WhatsApp</button>
@@ -442,7 +446,7 @@ function telaRegistro() {
   $("#f-peso").addEventListener("input", maskPeso);
   ligar("#f-pinto", (v) => (lt.pinto = num(v)));
   ligar("#f-peso", (v) => { if (num(v) > 0) lt.pesos[idade] = num(v); else delete lt.pesos[idade]; });
-  [["mortos", "#o-mortos"], ["caq", "#o-caq"], ["prob", "#o-prob"], ["outros", "#o-outros"]].forEach(([k, id]) => ligar(id, (v) => (lt.oc[k] = num(v))));
+  [["mortos", "#o-mortos"], ["caq", "#o-caq"], ["prob", "#o-prob"], ["outros", "#o-outros"]].forEach(([k, id]) => ligar(id, (v) => { lt.oc[idade] = lt.oc[idade] || {}; lt.oc[idade][k] = num(v); }));
   app.querySelectorAll(".age").forEach((b) => (b.onclick = () => { idade = +b.dataset.d; telaRegistro(); }));
   $("#voltar").onclick = irLotes;
   $("#salvar").onclick = () => { salvar(); const e = $("#estado"); e.textContent = "Salvo"; e.classList.add("saved"); toast("Registro salvo"); };
@@ -464,9 +468,10 @@ function calcular(editou) {
   const p = lt.pesos[idade], dl = $("#delta");
   if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação ao recomendado"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
   else { dl.textContent = "Digite o peso para comparar com o recomendado."; dl.className = "delta"; }
-  $("#tot").textContent = fmtI(totalOc(lt.oc));
+  $("#tot").textContent = fmtI(totalLote(lt));
+  $("#totS").textContent = "aos " + idade + " dias: " + fmtI(totalOc(lt.oc[idade]));
   $("#pct").textContent = num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "–";
-  const b = app.querySelector(`.age[data-d="${idade}"]`); if (b) b.classList.toggle("done", !!lt.pesos[idade]);
+  const b = app.querySelector(`.age[data-d="${idade}"]`); if (b) b.classList.toggle("done", !!lt.pesos[idade] || totalOc(lt.oc[idade]) > 0);
   if (editou) { const e = $("#estado"); e.textContent = lt.encerrado ? "Encerrado" : "Em andamento"; e.classList.remove("saved"); }
 }
 
@@ -508,16 +513,31 @@ function montarPdf() {
     y += 10;
   });
   y += 12;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Ocorrências do lote", M, y); y += 4;
-  const oc = [["Mortos", lt.oc.mortos], ["Caq. / Ref.", lt.oc.caq], ["Prob. loc.", lt.oc.prob], ["Outros", lt.oc.outros]];
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-  oc.forEach(([t, v]) => { doc.text(t, cols[0] + 2, y + 6.5); doc.text(fmtI(num(v)), cols[1] + 2, y + 6.5); doc.line(M, y + 10, W - M, y + 10); y += 10; });
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Ocorrências por idade", M, y); y += 4;
+  const oc = [M, M + 28, M + 64, M + 100, M + 130, M + 156];
+  doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 9, "F");
+  doc.setFontSize(10); doc.setTextColor(29, 98, 114);
+  ["Idade", "Mortos", "Caq. / Ref.", "Prob. loc.", "Outros", "Total"].forEach((t, i) => doc.text(t, oc[i] + 2, y + 6));
+  y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
+  DIAS.forEach((d) => {
+    const o = lt.oc[d];
+    doc.text(d + " dias", oc[0] + 2, y + 6.5);
+    [o && o.mortos, o && o.caq, o && o.prob, o && o.outros].forEach((v, i) => doc.text(o ? fmtI(num(v)) : "-", oc[i + 1] + 2, y + 6.5));
+    doc.text(o ? fmtI(totalOc(o)) : "-", oc[5] + 2, y + 6.5);
+    doc.setDrawColor(217, 225, 230); doc.line(M, y + 10, W - M, y + 10);
+    y += 10;
+  });
+  doc.setFont("helvetica", "bold");
+  doc.text("Total", oc[0] + 2, y + 6.5);
+  ["mortos", "caq", "prob", "outros"].forEach((c, i) => doc.text(fmtI(somaOc(lt, c)), oc[i + 1] + 2, y + 6.5));
+  doc.text(fmtI(totalLote(lt)), oc[5] + 2, y + 6.5);
+  y += 10;
   y += 10;
   doc.setFillColor(34, 56, 83); doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, "F");
   doc.setTextColor(159, 176, 195); doc.setFontSize(9);
-  doc.text("TOTAL DE OCORRÊNCIAS", M + 8, y + 9); doc.text("% MORTOS (mortos ÷ alojadas)", M + 100, y + 9);
+  doc.text("TOTAL DO LOTE (todas as idades)", M + 8, y + 9); doc.text("% MORTOS (mortos ÷ alojadas)", M + 100, y + 9);
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
-  doc.text(fmtI(totalOc(lt.oc)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
+  doc.text(fmtI(totalLote(lt)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
   doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
   doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade", M, 288);
   return doc;
