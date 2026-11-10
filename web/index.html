@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.9";
+const VERSAO = "1.10";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -288,6 +288,8 @@ function maskPeso(e) {
 window.__back = () => {
   const aviso = document.querySelector(".modal #dn");
   if (aviso) { aviso.click(); return true; }
+  if (tela === "aviarios" && $("#cancAv")) { telaAviarios(false); return true; }
+  if (tela === "lotes" && $("#cancNome")) { telaLotes(false); return true; }
   if (tela === "registro") { irLotes(); return true; }
   if (tela === "lotes") { irAviarios(); return true; }
   return false;
@@ -315,7 +317,7 @@ function telaAviarios(adicionando = false) {
     : `<div class="empty"><b>Nenhum aviário ainda</b>Toque em "Novo aviário" para começar.</div>`;
   app.innerHTML = topo("Aviários", "Controle de peso e mortalidade") +
     (adicionando
-      ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" placeholder="Ex.: Aviário 1" autocomplete="off" maxlength="40"></div></div>${segHtml(tipoSel)}<button class="btn" id="okAv">Criar aviário</button></div>`
+      ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" placeholder="Ex.: Aviário 1" autocomplete="off" maxlength="40"></div></div>${segHtml(tipoSel)}<div class="dbtn"><button class="btn ghost" id="cancAv" type="button">Cancelar</button><button class="btn" id="okAv">Criar aviário</button></div></div>`
       : `<button class="btn" id="novoAv">+ Novo aviário</button>`) + lista;
   if (adicionando) {
     const inp = $("#nomeAv"); inp.focus(); ligarSeg();
@@ -325,6 +327,7 @@ function telaAviarios(adicionando = false) {
       db.aviarios.push({ id: novoId(), nome, tipo: tipoSel, lotes: [] }); salvar(); telaAviarios(false); toast(nome + " criado");
     };
     $("#okAv").onclick = criar;
+    $("#cancAv").onclick = () => telaAviarios(false);
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") criar(); });
   } else {
     $("#novoAv").onclick = () => { tipoSel = TIPOS[0]; telaAviarios(true); };
@@ -361,7 +364,7 @@ function telaLotes(editando = false) {
   const atual = av.lotes.find((l) => !l.encerrado);
   const antigos = av.lotes.filter((l) => l.encerrado);
   app.innerHTML = topo(av.nome, "Lotes · " + (av.tipo || TIPOS[0]), true) +
-    (editando ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" value="${esc(av.nome)}" maxlength="40" autocomplete="off"></div></div>${segHtml(tipoSel)}<button class="btn" id="okNome">Salvar alterações</button></div>` : "") +
+    (editando ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" value="${esc(av.nome)}" maxlength="40" autocomplete="off"></div></div>${segHtml(tipoSel)}<div class="dbtn"><button class="btn ghost" id="cancNome" type="button">Cancelar</button><button class="btn" id="okNome">Salvar alterações</button></div></div>` : "") +
     (atual ? `<div class="sec">Lote atual</div><div class="list">${linhaLote(atual)}</div>`
       : `<button class="btn" id="novoLote">+ Novo lote</button><p class="hint">Este aviário está sem lote. Crie o próximo quando alojar.</p>`) +
     (antigos.length ? `<div class="sec">Lotes anteriores</div><div class="list">${antigos.map(linhaLote).join("")}</div>` : "") +
@@ -372,6 +375,7 @@ function telaLotes(editando = false) {
     const inp = $("#nomeAv"); inp.focus(); inp.select(); ligarSeg();
     const ok = () => { const n = inp.value.trim(); if (n) av.nome = n; av.tipo = tipoSel; salvar(); toast("Aviário salvo"); telaLotes(false); };
     $("#okNome").onclick = ok;
+    $("#cancNome").onclick = () => telaLotes(false);
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
   }
   const nl = $("#novoLote");
