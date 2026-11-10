@@ -1,0 +1,15 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'br.com.controlealojamento.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'br.com.controlealojamento.app'
+        minSdk 23
+        targetSdk 28
+        versionCode 2
+        versionName '1.1'
+    }
+    // O app web mora em ../../web e entra no APK como assets.
+    sourceSets { main { assets.srcDirs = ['../../web'] } }
+}
