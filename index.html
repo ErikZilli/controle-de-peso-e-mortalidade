@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.10";
+const VERSAO = "1.11";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -168,7 +168,9 @@ const hoje = new Date();
 const pad = (n) => String(n).padStart(2, "0");
 const isoHoje = () => hoje.getFullYear() + "-" + pad(hoje.getMonth() + 1) + "-" + pad(hoje.getDate());
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
-const fmt = (n, d = 3) => n.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+// Arredonda 0,5 pra cima de verdade (0,1935 vira 0,194, como na tabela do pai).
+const arred = (n, d) => Math.sign(n) * Math.round(Math.abs(n) * 10 ** d + 1e-7) / 10 ** d;
+const fmt = (n, d = 3) => arred(n, d).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtI = (n) => n.toLocaleString("pt-BR");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const brData = (d) => d.split("-").reverse().join("/");
@@ -178,10 +180,10 @@ const somaOc = (l, campo) => DIAS.reduce((t, d) => t + num((l.oc[d] || {})[campo
 const totalLote = (l) => DIAS.reduce((t, d) => t + totalOc(l.oc[d]), 0);
 const pctMortos = (l) => (num(l.alojada) > 0 ? (somaOc(l, "mortos") / num(l.alojada)) * 100 : 0);
 const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d <= x) || 35; };
+// Curva de referência do pai (tabela dele): cada idade multiplica a recomendada da anterior, sempre a partir do peso do pinto.
 function recomendado(l, d) {
   if (d === 7) return l.pinto * MULT[7];
-  const a = ANT[d];
-  return (l.pesos[a] || recomendado(l, a)) * MULT[d];
+  return recomendado(l, ANT[d]) * MULT[d];
 }
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.id); toast.id = setTimeout(() => (t.hidden = true), 2200); }
 const novoId = () => Date.now() + Math.floor(Math.random() * 1000);
@@ -485,7 +487,7 @@ function calcular(editou) {
   const rec = recomendado(lt, idade);
   $("#rec").innerHTML = fmt(rec) + " <small>kg</small>";
   $("#mult").textContent = fmt(MULT[idade], 1) + "×";
-  $("#base").textContent = idade === 7 ? "do peso do pinto" : "do peso aos " + ANT[idade] + " dias";
+  $("#base").textContent = idade === 7 ? "do peso do pinto" : "do recomendado aos " + ANT[idade] + " dias";
   const p = lt.pesos[idade], dl = $("#delta");
   if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação ao recomendado"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
   else { dl.textContent = "Digite o peso para comparar com o recomendado."; dl.className = "delta"; }
