@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.12";
+const VERSAO = "1.13";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -537,28 +537,26 @@ function montarPdf() {
   });
   y += 12;
   doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Mortalidade", M, y); y += 4;
-  const oc = [M, M + 28, M + 64, M + 100, M + 130, M + 156];
+  // Mesma disposição da folha do pai: idades nas colunas, tipos de mortalidade nas linhas.
+  const cw = 28, lw = 38, cx = (i) => M + lw + i * cw;
   doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 9, "F");
-  doc.setFontSize(10); doc.setTextColor(29, 98, 114);
-  ["Idade", "Natural", "Caq. / Ref.", "Prob. loc.", "Outros", "Total"].forEach((t, i) => doc.text(t, oc[i] + 2, y + 6));
-  y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
-  DIAS.forEach((d) => {
-    const o = lt.oc[d];
-    doc.text(d + " dias", oc[0] + 2, y + 6.5);
-    [o && o.mortos, o && o.caq, o && o.prob, o && o.outros].forEach((v, i) => doc.text(o ? fmtI(num(v)) : "-", oc[i + 1] + 2, y + 6.5));
-    doc.text(o ? fmtI(totalOc(o)) : "-", oc[5] + 2, y + 6.5);
+  doc.setFontSize(10); doc.setTextColor(29, 98, 114); doc.setFont("helvetica", "bold");
+  DIAS.forEach((d, i) => doc.text(String(d).padStart(2, "0") + " dias", cx(i) + cw / 2, y + 6, { align: "center" }));
+  y += 9; doc.setTextColor(20, 34, 47); doc.setFontSize(11);
+  [["Natural", "mortos"], ["Caq. / Ref.", "caq"], ["Prob. loc.", "prob"], ["Outros", "outros"]].forEach(([nome, c]) => {
+    doc.setFont("helvetica", "bold"); doc.text(nome, M + 2, y + 6.5);
+    doc.setFont("helvetica", "normal");
+    DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(num(o[c])) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
     doc.setDrawColor(217, 225, 230); doc.line(M, y + 10, W - M, y + 10);
     y += 10;
   });
-  doc.setFont("helvetica", "bold");
-  doc.text("Total", oc[0] + 2, y + 6.5);
-  ["mortos", "caq", "prob", "outros"].forEach((c, i) => doc.text(fmtI(somaOc(lt, c)), oc[i + 1] + 2, y + 6.5));
-  doc.text(fmtI(totalLote(lt)), oc[5] + 2, y + 6.5);
+  doc.setFont("helvetica", "bold"); doc.text("Total", M + 2, y + 6.5);
+  DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(totalOc(o)) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
   y += 10;
   y += 10;
   doc.setFillColor(34, 56, 83); doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, "F");
   doc.setTextColor(159, 176, 195); doc.setFontSize(9);
-  doc.text("TOTAL DO LOTE (todas as idades)", M + 8, y + 9); doc.text("% MORTOS", M + 100, y + 9);
+  doc.text("TOTAL DO LOTE", M + 8, y + 9); doc.text("% MORTOS", M + 100, y + 9);
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
   doc.text(fmtI(totalLote(lt)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
   doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
