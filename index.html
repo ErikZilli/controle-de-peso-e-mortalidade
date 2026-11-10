@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e4eaee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Peso e Mortalidade">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Controle de Peso e Mortalidade</title>
+<style>
+:root {
+  --bg: #e4eaee; --card: #ffffff; --field: #f8fafb; --line: #d9e1e6; --ink: #14222f; --mute: #6b7c89;
+  --accent: #1d6272; --accent-ink: #ffffff; --accent-soft: #e6f0f2; --deep: #223853; --deep-ink: #ffffff; --deep-mute: #9fb0c3;
+  --warn: #b4531a; --warn-soft: #fbeee3; --ok: #23805a; --danger: #b3261e;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.4;
+  padding: max(20px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.app { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2 { margin: 0; font-weight: 800; letter-spacing: -.01em; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; align-items: center; gap: 12px; }
+.badge { width: 52px; height: 52px; flex: none; border-radius: 16px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 800; font-size: 16px; box-shadow: 0 8px 18px -8px var(--accent); }
+.top-text { min-width: 0; flex: 1; }
+.eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
+.top h1 { font-size: 26px; line-height: 1.15; overflow-wrap: anywhere; }
+.pill { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--mute); white-space: nowrap; }
+.pill.saved { color: var(--ok); border-color: var(--ok); }
+.back { border: 0; background: var(--card); width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center; font-size: 22px; }
+
+.card { background: var(--card); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.card-head { display: flex; align-items: center; gap: 12px; }
+.step { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; }
+.card-head h2 { font-size: 20px; }
+.card-head p { margin: 2px 0 0; font-size: 13px; color: var(--mute); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.f { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.f label { font-size: 13px; font-weight: 600; color: var(--mute); }
+.inp { display: flex; align-items: center; background: var(--field); border: 1px solid var(--line); border-radius: 16px; padding: 0 14px; min-height: 52px; }
+.inp:focus-within { border-color: var(--accent); }
+.inp input { border: 0; background: transparent; width: 100%; min-width: 0; font: 600 17px var(--font); color: var(--ink); padding: 12px 0; outline: none; }
+.inp .u { color: var(--mute); font-size: 13px; font-weight: 600; margin-left: 6px; }
+
+.ages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.age { position: relative; border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 10px 0; display: flex; flex-direction: column; align-items: center; color: var(--mute); }
+.age b { font-size: 20px; line-height: 1; font-weight: 800; }
+.age small { font-size: 11px; margin-top: 3px; }
+.age[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.age.done::after { content: "✓"; position: absolute; top: 3px; right: 6px; font-size: 11px; font-weight: 800; color: var(--ok); }
+.age[aria-pressed="true"].done::after { color: var(--accent-ink); }
+.rec { display: grid; grid-template-columns: 1fr 1fr; background: var(--accent-soft); border-radius: 18px; }
+.rec > div { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.rec > div + div { border-left: 1px solid var(--line); }
+.rec .l { font-size: 12px; font-weight: 600; color: var(--mute); }
+.rec .v { font-size: 26px; font-weight: 800; color: var(--accent); }
+.rec .v small { font-size: 12px; font-weight: 600; color: var(--mute); }
+.delta { font-size: 13px; font-weight: 600; color: var(--mute); }
+.delta.neg { color: var(--warn); }
+.delta.pos { color: var(--ok); }
+
+.sum { background: var(--deep); color: var(--deep-ink); border-radius: 24px; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sum > div + div { border-left: 1px solid rgba(255,255,255,.18); padding-left: 16px; text-align: right; }
+.sum .l { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--deep-mute); font-weight: 600; }
+.sum .v { font-size: 32px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sum .s { font-size: 12px; color: var(--deep-mute); margin-top: 2px; }
+.btn { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 18px; min-height: 56px; font-weight: 700; font-size: 17px; width: 100%; }
+.btn.ghost { background: var(--card); color: var(--accent); border: 1.5px solid var(--accent); min-height: 52px; }
+.btn.danger { background: var(--card); color: var(--danger); border: 1.5px solid var(--danger); min-height: 48px; font-size: 15px; }
+.btn.danger.sure { background: var(--danger); color: #fff; }
+.hint { text-align: center; font-size: 13px; color: var(--mute); margin: 0; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; gap: 14px; background: var(--card); border: 0; border-radius: 20px; padding: 16px; text-align: left; width: 100%; }
+.row .ico { width: 46px; height: 46px; border-radius: 14px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; font-size: 16px; flex: none; }
+.row .tx { flex: 1; min-width: 0; }
+.row .tx b { display: block; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+.row .tx span { display: block; font-size: 13px; color: var(--mute); margin-top: 2px; }
+.row .chev { color: var(--mute); font-size: 22px; }
+.chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.sec { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 600; margin: 4px 4px 0; }
+.empty { background: var(--card); border-radius: 24px; padding: 28px 20px; text-align: center; color: var(--mute); }
+.empty b { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+.addrow { display: flex; gap: 10px; }
+.addrow .inp { flex: 1; background: var(--card); }
+.addrow .btn { width: auto; padding: 0 20px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seg button { border: 1px solid var(--line); background: var(--field); border-radius: 14px; min-height: 48px; font-weight: 700; font-size: 14px; color: var(--mute); padding: 0 6px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: 90vw; text-align: center; }
+.toast[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main class="app" id="app"></main>
+<div class="toast" id="toast" hidden></div>
+<script src="jspdf.umd.min.js"></script>
+<script>
+"use strict";
+const DIAS = [7, 14, 21, 28, 35];
+const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
+const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
+const KEY = "controle-alojamento.v1";
+const TIPOS = ["Convencional", "Modal", "Dark House"];
+let tipoSel = TIPOS[0];
+
+// ---------- dados (salvos no aparelho) ----------
+let db = { aviarios: [] };
+let memoria = null;
+function carregar() {
+  try { const t = localStorage.getItem(KEY); if (t) db = JSON.parse(t); } catch (e) { if (memoria) db = memoria; }
+  if (!db || !Array.isArray(db.aviarios)) db = { aviarios: [] };
+}
+function salvar() {
+  memoria = db;
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {}
+}
+carregar();
+
+// ---------- utilidades ----------
+const $ = (s, r = document) => r.querySelector(s);
+const app = $("#app");
+let tela = "aviarios", av = null, lt = null, idade = 7;
+const hoje = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const isoHoje = () => hoje.getFullYear() + "-" + pad(hoje.getMonth() + 1) + "-" + pad(hoje.getDate());
+const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+const fmt = (n, d = 3) => n.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtI = (n) => n.toLocaleString("pt-BR");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const brData = (d) => d.split("-").reverse().join("/");
+const diasDe = (data) => Math.max(0, Math.floor((new Date(isoHoje() + "T00:00:00") - new Date(data + "T00:00:00")) / 864e5));
+const totalOc = (o) => num(o.mortos) + num(o.caq) + num(o.prob) + num(o.outros);
+const pctMortos = (l) => (num(l.alojada) > 0 ? (num(l.oc.mortos) / num(l.alojada)) * 100 : 0);
+const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d <= x) || 35; };
+function recomendado(l, d) {
+  if (d === 7) return l.pinto * MULT[7];
+  const a = ANT[d];
+  return (l.pesos[a] || recomendado(l, a)) * MULT[d];
+}
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.id); toast.id = setTimeout(() => (t.hidden = true), 2200); }
+const novoId = () => Date.now() + Math.floor(Math.random() * 1000);
+
+function topo(titulo, eyebrow, back, extra = "") {
+  return `<div class="top">${back ? `<button class="back" id="voltar" aria-label="Voltar">‹</button>` : `<div class="badge">CA</div>`}
+  <div class="top-text"><div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(titulo)}</h1></div>${extra}</div>`;
+}
+function campo(id, rotulo, valor, o = {}) {
+  return `<div class="f"><label for="${id}">${rotulo}</label><div class="inp"><input id="${id}" value="${esc(valor)}" inputmode="${o.mode || "decimal"}" ${o.ph ? `placeholder="${o.ph}"` : ""} autocomplete="off">${o.u ? `<span class="u">${o.u}</span>` : ""}</div></div>`;
+}
+
+// Peso: digitou 0 (ou 0 seguido de número), a vírgula entra sozinha: 0959 vira 0,959. Apagar continua livre.
+function maskPeso(e) {
+  if (e.inputType && !e.inputType.startsWith("insert")) return;
+  let v = e.target.value.replace(/\./g, ",").replace(/[^\d,]/g, "");
+  const i = v.indexOf(",");
+  if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/,/g, "");
+  else if (/^0\d?/.test(v) && v.length >= 1) v = "0," + v.slice(1);
+  e.target.value = v;
+}
+
+// voltar do Android / gesto
+window.__back = () => {
+  if (tela === "registro") { irLotes(); return true; }
+  if (tela === "lotes") { irAviarios(); return true; }
+  return false;
+};
+
+function segHtml(sel) {
+  return `<div class="f"><label>Tipo de aviário</label><div class="seg" role="group" aria-label="Tipo de aviário">${TIPOS.map((t) => `<button type="button" data-t="${t}" aria-pressed="${t === sel}">${t}</button>`).join("")}</div></div>`;
+}
+function ligarSeg() {
+  app.querySelectorAll(".seg [data-t]").forEach((b) => (b.onclick = () => { tipoSel = b.dataset.t; app.querySelectorAll(".seg [data-t]").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); }));
+}
+
+// ---------- tela 1: aviários ----------
+function irAviarios() { tela = "aviarios"; av = null; lt = null; telaAviarios(); }
+function telaAviarios(adicionando = false) {
+  const lista = db.aviarios.length
+    ? `<div class="sec">Meus aviários</div><div class="list">${db.aviarios.map((a) => {
+        const ativo = a.lotes.some((l) => !l.encerrado);
+        return `<button class="row" data-av="${a.id}"><div class="ico">${esc((a.nome.match(/\d+/) || [a.nome.charAt(0).toUpperCase() || "A"])[0])}</div>
+        <div class="tx"><b>${esc(a.nome)}</b><span>${esc(a.tipo || TIPOS[0])} · ${ativo ? "Lote em andamento" : "Sem lote"} · ${a.lotes.length} ${a.lotes.length === 1 ? "lote" : "lotes"}</span></div><span class="chev">›</span></button>`;
+      }).join("")}</div><p class="hint">Toque num aviário para ver os lotes.</p>`
+    : `<div class="empty"><b>Nenhum aviário ainda</b>Toque em "Novo aviário" para começar.</div>`;
+  app.innerHTML = topo("Aviários", "Controle de peso e mortalidade") +
+    (adicionando
+      ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" placeholder="Ex.: Aviário 1" autocomplete="off" maxlength="40"></div></div>${segHtml(tipoSel)}<button class="btn" id="okAv">Criar aviário</button></div>`
+      : `<button class="btn" id="novoAv">+ Novo aviário</button>`) + lista;
+  if (adicionando) {
+    const inp = $("#nomeAv"); inp.focus(); ligarSeg();
+    const criar = () => {
+      const nome = inp.value.trim();
+      if (!nome) { telaAviarios(false); return; }
+      db.aviarios.push({ id: novoId(), nome, tipo: tipoSel, lotes: [] }); salvar(); telaAviarios(false); toast(nome + " criado");
+    };
+    $("#okAv").onclick = criar;
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") criar(); });
+  } else {
+    $("#novoAv").onclick = () => { tipoSel = TIPOS[0]; telaAviarios(true); };
+  }
+  app.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => { av = db.aviarios.find((a) => a.id == b.dataset.av); tela = "lotes"; telaLotes(); }));
+}
+
+// ---------- tela 2: lotes do aviário ----------
+function irLotes() { tela = "lotes"; lt = null; telaLotes(); }
+function linhaLote(l) {
+  const p = pctMortos(l);
+  const feito = DIAS.filter((d) => l.pesos[d]).length;
+  return `<button class="row" data-lt="${l.id}"><div class="ico">${esc((l.lote.match(/\d+/) || [l.lote.charAt(0).toUpperCase() || "L"])[0])}</div>
+  <div class="tx"><b>${esc(l.lote)}</b><span>Alojado em ${brData(l.data)} · dia ${diasDe(l.data)} · ${fmtI(num(l.alojada))} aves</span>
+  <span>${feito} de 5 pesagens · cama ${num(l.cama) || "–"}ª vez</span></div>
+  <span class="chip ${p > 4 ? "warn" : ""}">${fmt(p, 2)}% mortos</span></button>`;
+}
+function telaLotes(editando = false) {
+  const atual = av.lotes.find((l) => !l.encerrado);
+  const antigos = av.lotes.filter((l) => l.encerrado);
+  app.innerHTML = topo(av.nome, "Lotes · " + (av.tipo || TIPOS[0]), true) +
+    (editando ? `<div class="card"><div class="f"><label for="nomeAv">Nome do aviário</label><div class="inp"><input id="nomeAv" value="${esc(av.nome)}" maxlength="40" autocomplete="off"></div></div>${segHtml(tipoSel)}<button class="btn" id="okNome">Salvar alterações</button></div>` : "") +
+    (atual ? `<div class="sec">Lote atual</div><div class="list">${linhaLote(atual)}</div>`
+      : `<button class="btn" id="novoLote">+ Novo lote</button><p class="hint">Este aviário está sem lote. Crie o próximo quando alojar.</p>`) +
+    (antigos.length ? `<div class="sec">Lotes anteriores</div><div class="list">${antigos.map(linhaLote).join("")}</div>` : "") +
+    `<button class="btn ghost" id="edAv">Editar aviário</button><button class="btn danger" id="exAv">Excluir aviário</button>`;
+  $("#voltar").onclick = irAviarios;
+  $("#edAv").onclick = () => { tipoSel = av.tipo || TIPOS[0]; telaLotes(true); };
+  if (editando) {
+    const inp = $("#nomeAv"); inp.focus(); inp.select(); ligarSeg();
+    const ok = () => { const n = inp.value.trim(); if (n) av.nome = n; av.tipo = tipoSel; salvar(); toast("Aviário salvo"); telaLotes(false); };
+    $("#okNome").onclick = ok;
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
+  }
+  const nl = $("#novoLote");
+  if (nl) nl.onclick = () => {
+    const ultimo = antigos[0];
+    const n = { id: novoId(), lote: "Lote " + (av.lotes.length + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: { mortos: 0, caq: 0, prob: 0, outros: 0 }, encerrado: false };
+    av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
+  };
+  app.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { lt = av.lotes.find((l) => l.id == b.dataset.lt); idade = idadeAtual(lt); tela = "registro"; telaRegistro(); }));
+  confirmar("#exAv", "Excluir aviário", "Toque de novo para excluir " + av.nome + " e todos os lotes", () => {
+    db.aviarios = db.aviarios.filter((a) => a !== av); salvar(); irAviarios(); toast("Aviário excluído");
+  });
+}
+function confirmar(sel, rotulo, aviso, fn) {
+  const b = $(sel); let armado = false;
+  b.onclick = () => {
+    if (!armado) { armado = true; b.textContent = aviso; b.classList.add("sure"); setTimeout(() => { armado = false; b.textContent = rotulo; b.classList.remove("sure"); }, 4000); return; }
+    fn();
+  };
+}
+
+// ---------- tela 3: registro do lote ----------
+function telaRegistro() {
+  const o = lt.oc;
+  app.innerHTML = topo("Registro do lote", av.nome + " · " + lt.lote, true, `<span class="pill" id="estado">${lt.encerrado ? "Encerrado" : "Em andamento"}</span>`) +
+    `<section class="card"><div class="card-head"><div class="step">01</div><div><h2>Dados do lote</h2><p>Informações gerais do alojamento</p></div></div>
+      <div class="grid2">
+        ${campo("f-data", "Data aloja.", brData(lt.data), { mode: "numeric", ph: "dd/mm/aaaa" })}
+        ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "0" })}
+        ${campo("f-cama", "Cama (nº de usos)", lt.cama || "", { mode: "numeric", ph: "1" })}
+        ${campo("f-lote", "Lote", lt.lote, { mode: "text" })}
+        ${campo("f-pinto", "Peso pinto (referência)", fmt(lt.pinto), { u: "kg" })}
+      </div></section>
+    <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>O recomendado é calculado a partir do peso pinto</p></div></div>
+      <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
+      <div class="rec"><div><span class="l">Peso recomendado</span><span class="v" id="rec"></span></div>
+        <div><span class="l">Multiplicador</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
+      ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "0,000" })}
+      <div class="delta" id="delta"></div></section>
+    <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Ocorrências</h2><p>Total do lote até agora</p></div></div>
+      <div class="grid2">
+        ${campo("o-mortos", "Mortos", o.mortos || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
+      </div></section>
+    <section class="sum"><div><div class="l">Total de ocorrências</div><div class="v" id="tot"></div><div class="s">soma das ocorrências</div></div>
+      <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">mortos ÷ alojadas</div></div></section>
+    <button class="btn" id="salvar">Salvar registro</button>
+    <p class="hint">Tudo é salvo no aparelho conforme você digita.</p>
+    <button class="btn ghost" id="pdf">Compartilhar PDF no WhatsApp</button>
+    ${lt.encerrado ? "" : `<button class="btn ghost" id="encerrar">Encerrar lote (abate)</button>`}
+    <button class="btn danger" id="exLote">Excluir lote</button>`;
+  calcular(false);
+
+  const ligar = (id, fn) => $(id).addEventListener("input", (e) => { fn(e.target.value); salvar(); calcular(true); });
+  $("#f-data").addEventListener("input", (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 8);
+    e.target.value = d.length > 4 ? d.slice(0, 2) + "/" + d.slice(2, 4) + "/" + d.slice(4) : d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d;
+    if (d.length === 8) {
+      const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4);
+      const dt = new Date(ano, mes - 1, dia);
+      if (dt.getFullYear() === ano && dt.getMonth() === mes - 1 && dt.getDate() === dia) { lt.data = ano + "-" + d.slice(2, 4) + "-" + d.slice(0, 2); salvar(); }
+    }
+    calcular(true);
+  });
+  ligar("#f-alojada", (v) => (lt.alojada = num(v)));
+  ligar("#f-cama", (v) => (lt.cama = num(v)));
+  ligar("#f-lote", (v) => (lt.lote = v));
+  $("#f-pinto").addEventListener("input", maskPeso);
+  $("#f-peso").addEventListener("input", maskPeso);
+  ligar("#f-pinto", (v) => (lt.pinto = num(v)));
+  ligar("#f-peso", (v) => { if (num(v) > 0) lt.pesos[idade] = num(v); else delete lt.pesos[idade]; });
+  [["mortos", "#o-mortos"], ["caq", "#o-caq"], ["prob", "#o-prob"], ["outros", "#o-outros"]].forEach(([k, id]) => ligar(id, (v) => (lt.oc[k] = num(v))));
+  app.querySelectorAll(".age").forEach((b) => (b.onclick = () => { idade = +b.dataset.d; telaRegistro(); }));
+  $("#voltar").onclick = irLotes;
+  $("#salvar").onclick = () => { salvar(); const e = $("#estado"); e.textContent = "Salvo"; e.classList.add("saved"); toast("Registro salvo"); };
+  $("#pdf").onclick = compartilharPdf;
+  const enc = $("#encerrar");
+  if (enc) confirmar("#encerrar", "Encerrar lote (abate)", "Toque de novo para encerrar este lote", () => { lt.encerrado = true; salvar(); irLotes(); toast("Lote encerrado. Já pode criar o próximo"); });
+  confirmar("#exLote", "Excluir lote", "Toque de novo para excluir este lote", () => { av.lotes = av.lotes.filter((l) => l !== lt); salvar(); irLotes(); toast("Lote excluído"); });
+}
+
+function calcular(editou) {
+  const rec = recomendado(lt, idade);
+  $("#rec").innerHTML = fmt(rec) + " <small>kg</small>";
+  $("#mult").textContent = fmt(MULT[idade], 1) + "×";
+  $("#base").textContent = idade === 7 ? "do peso do pinto" : "do peso aos " + ANT[idade] + " dias";
+  const p = lt.pesos[idade], dl = $("#delta");
+  if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação ao recomendado"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
+  else { dl.textContent = "Digite o peso para comparar com o recomendado."; dl.className = "delta"; }
+  $("#tot").textContent = fmtI(totalOc(lt.oc));
+  $("#pct").textContent = num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "–";
+  const b = app.querySelector(`.age[data-d="${idade}"]`); if (b) b.classList.toggle("done", !!lt.pesos[idade]);
+  if (editou) { const e = $("#estado"); e.textContent = lt.encerrado ? "Encerrado" : "Em andamento"; e.classList.remove("saved"); }
+}
+
+// ---------- PDF ----------
+function montarPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const W = 210, M = 16;
+  doc.setFillColor(29, 98, 114); doc.rect(0, 0, W, 34, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
+  doc.text("Controle de peso e mortalidade", M, 16);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(12);
+  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + lt.lote, M, 26);
+  doc.setTextColor(20, 34, 47);
+  let y = 46;
+  const par = (a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, M, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, M, y + 6); };
+  const par2 = (x, a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, x, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, x, y + 6); };
+  par2(M, "Data de alojamento", brData(lt.data));
+  par2(M + 62, "Quantidade alojada", fmtI(num(lt.alojada)));
+  par2(M + 124, "Cama (nº de usos)", String(num(lt.cama) || "-"));
+  y += 18;
+  par2(M, "Peso do pinto (referência)", fmt(lt.pinto) + " kg");
+  par2(M + 62, "Dia do lote", String(diasDe(lt.data)));
+  par2(M + 124, "Situação", lt.encerrado ? "Encerrado" : "Em andamento");
+  y += 20;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Pesagens", M, y); y += 4;
+  const cols = [M, M + 28, M + 76, M + 124, M + 156];
+  doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 9, "F");
+  doc.setFontSize(10); doc.setTextColor(29, 98, 114);
+  ["Idade", "Peso recomendado", "Peso real", "Diferença"].forEach((t, i) => doc.text(t, cols[i] + 2, y + 6));
+  y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
+  DIAS.forEach((d) => {
+    const rec = recomendado(lt, d), p = lt.pesos[d];
+    doc.text(d + " dias", cols[0] + 2, y + 6.5);
+    doc.text(fmt(rec) + " kg", cols[1] + 2, y + 6.5);
+    doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 6.5);
+    doc.text(p ? (((p - rec) / rec) * 100 >= 0 ? "+" : "") + fmt(((p - rec) / rec) * 100, 1) + "%" : "-", cols[3] + 2, y + 6.5);
+    doc.setDrawColor(217, 225, 230); doc.line(M, y + 10, W - M, y + 10);
+    y += 10;
+  });
+  y += 12;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Ocorrências do lote", M, y); y += 4;
+  const oc = [["Mortos", lt.oc.mortos], ["Caq. / Ref.", lt.oc.caq], ["Prob. loc.", lt.oc.prob], ["Outros", lt.oc.outros]];
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+  oc.forEach(([t, v]) => { doc.text(t, cols[0] + 2, y + 6.5); doc.text(fmtI(num(v)), cols[1] + 2, y + 6.5); doc.line(M, y + 10, W - M, y + 10); y += 10; });
+  y += 10;
+  doc.setFillColor(34, 56, 83); doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, "F");
+  doc.setTextColor(159, 176, 195); doc.setFontSize(9);
+  doc.text("TOTAL DE OCORRÊNCIAS", M + 8, y + 9); doc.text("% MORTOS (mortos ÷ alojadas)", M + 100, y + 9);
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
+  doc.text(fmtI(totalOc(lt.oc)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
+  doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade", M, 288);
+  return doc;
+}
+async function compartilharPdf() {
+  try {
+    const doc = montarPdf();
+    const nome = (av.nome + " - " + lt.lote).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
+    const msg = av.nome + " | " + lt.lote + " | alojado em " + brData(lt.data);
+    if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(doc.output("datauristring").split(",")[1], nome, msg); return; }
+    const arq = new File([doc.output("blob")], nome, { type: "application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files: [arq] })) { await navigator.share({ files: [arq], title: nome, text: msg }); }
+    else { doc.save(nome); toast("PDF baixado"); }
+  } catch (e) { if (e && e.name !== "AbortError") toast("Não foi possível gerar o PDF"); }
+}
+
+telaAviarios();
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
