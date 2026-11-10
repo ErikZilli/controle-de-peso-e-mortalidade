@@ -106,8 +106,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .act svg { width: 22px; height: 22px; }
 .act.edit { background: var(--accent); }
 .act.del { background: var(--danger); }
-.swipe .row { position: relative; touch-action: pan-y; transition: transform .2s ease; }
+.swipe .row { position: relative; touch-action: pan-y; transition: transform .4s cubic-bezier(.25, .8, .3, 1), border-radius .4s ease; }
 .swipe .row.drag { transition: none; }
+.swipe.open .row, .swipe.dragging .row { border-radius: 20px 0 0 20px; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .dbtn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: 90vw; text-align: center; }
