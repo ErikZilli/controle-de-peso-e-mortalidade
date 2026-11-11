@@ -92,6 +92,10 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .btn.danger.sure { background: var(--danger); color: #fff; }
 .apos summary { cursor: pointer; font-weight: 700; font-size: 15px; color: var(--accent); padding: 6px 0; list-style: none; }
 .apos summary::-webkit-details-marker { display: none; }
+.apos summary { transition: transform .14s ease, opacity .2s ease, background-color .2s ease; border-radius: 12px; padding: 10px 12px; margin: 0 -12px; }
+.apos summary:active { transform: scale(.97); opacity: .65; background-color: var(--accent-soft); }
+.apos[open] .apos-body { animation: abreApos .3s ease both; }
+@keyframes abreApos { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .apos[open] summary { margin-bottom: 10px; }
 .hint { text-align: center; font-size: 13px; color: var(--mute); margin: 0; }
 
@@ -143,7 +147,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.23";
+const VERSAO = "1.24";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -437,8 +441,8 @@ function telaRegistro() {
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div>
       <details class="apos" id="aposBox" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
-        ${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
-        <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></details></section>
+        <div class="apos-body">${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
+        <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></div></details></section>
     <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
       <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
     <button class="btn" id="salvar">Salvar registro</button>
@@ -524,8 +528,11 @@ function montarPdf() {
   doc.setFillColor(230, 240, 242); doc.rect(0, 0, W, 34, "F");
   doc.setTextColor(29, 98, 114); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
   doc.text("Controle de peso e mortalidade", TX, 16);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(12);
-  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + nomeLote(lt), TX, 26);
+  doc.setFont("helvetica", "normal");
+  const sub = av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + nomeLote(lt);
+  let fs = 15; doc.setFontSize(fs);
+  while (fs > 10 && doc.getTextWidth(sub) > TW) { fs -= 0.5; doc.setFontSize(fs); }
+  doc.text(sub, TX, 26);
   doc.setTextColor(20, 34, 47);
   let y = 46;
   const par = (a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, M, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, M, y + 6); };
