@@ -78,7 +78,7 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .rec .v { font-size: 26px; font-weight: 800; color: var(--accent); }
 .rec .v small { font-size: 12px; font-weight: 600; color: var(--mute); }
 .delta { font-size: 13px; font-weight: 600; color: var(--mute); }
-.delta.neg { color: var(--warn); }
+.delta.neg { color: var(--danger); }
 .delta.pos { color: var(--ok); }
 
 .sum { background: var(--deep); color: var(--deep-ink); border-radius: 24px; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.13";
+const VERSAO = "1.14";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -184,6 +184,12 @@ const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d 
 function recomendado(l, d) {
   if (d === 7) return l.pinto * MULT[7];
   return recomendado(l, ANT[d]) * MULT[d];
+}
+// Diferença do peso real contra a referência JÁ ARREDONDADA (a que aparece na tela): peso igual ao mostrado = 0%.
+function dif(p, rec) {
+  const r = arred(rec, 3), kg = arred(arred(p, 3) - r, 3), pct = r ? (kg / r) * 100 : 0;
+  const s = kg > 0 ? "+" : "";
+  return { kg, pct, txt: s + fmt(kg) + " kg (" + s + fmt(pct, 1) + "%)", cls: kg < 0 ? "neg" : kg > 0 ? "pos" : "" };
 }
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.id); toast.id = setTimeout(() => (t.hidden = true), 2200); }
 const novoId = () => Date.now() + Math.floor(Math.random() * 1000);
@@ -489,7 +495,7 @@ function calcular(editou) {
   $("#mult").textContent = fmt(MULT[idade], 1) + "×";
   $("#base").textContent = idade === 7 ? "do peso do pinto" : "da referência aos " + ANT[idade] + " dias";
   const p = lt.pesos[idade], dl = $("#delta");
-  if (p) { const d = ((p - rec) / rec) * 100; dl.textContent = (d >= 0 ? "+" : "") + fmt(d, 1) + "% em relação à referência"; dl.className = "delta " + (d < -5 ? "neg" : d > 5 ? "pos" : ""); }
+  if (p) { const d = dif(p, rec); dl.textContent = d.txt + " em relação à referência"; dl.className = "delta " + d.cls; }
   else { dl.textContent = "Digite o peso para comparar com a referência."; dl.className = "delta"; }
   $("#tot").textContent = fmtI(totalLote(lt));
   $("#totS").textContent = "aos " + idade + " dias: " + fmtI(totalOc(lt.oc[idade]));
@@ -531,7 +537,12 @@ function montarPdf() {
     doc.text(d + " dias", cols[0] + 2, y + 6.5);
     doc.text(fmt(rec) + " kg", cols[1] + 2, y + 6.5);
     doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 6.5);
-    doc.text(p ? (((p - rec) / rec) * 100 >= 0 ? "+" : "") + fmt(((p - rec) / rec) * 100, 1) + "%" : "-", cols[3] + 2, y + 6.5);
+    if (p) {
+      const d = dif(p, rec);
+      doc.setTextColor(...(d.cls === "neg" ? [179, 38, 30] : d.cls === "pos" ? [35, 128, 90] : [20, 34, 47]));
+      doc.text(d.txt, cols[3] + 2, y + 6.5);
+      doc.setTextColor(20, 34, 47);
+    } else doc.text("-", cols[3] + 2, y + 6.5);
     doc.setDrawColor(217, 225, 230); doc.line(M, y + 10, W - M, y + 10);
     y += 10;
   });
