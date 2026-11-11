@@ -65,6 +65,7 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .f label { font-size: 13px; font-weight: 600; color: var(--mute); }
 .inp { display: flex; align-items: center; background: var(--field); border: 1px solid var(--line); border-radius: 16px; padding: 0 14px; min-height: 52px; }
 .inp:focus-within { border-color: var(--accent); }
+.inp input::placeholder { color: #aab6bf; font-weight: 400; font-style: italic; opacity: 1; }
 .inp input { border: 0; background: transparent; width: 100%; min-width: 0; font: 600 17px var(--font); color: var(--ink); padding: 12px 0; outline: none; }
 .inp .u { color: var(--mute); font-size: 13px; font-weight: 600; margin-left: 6px; }
 
@@ -402,7 +403,8 @@ function telaLotes(editando = false) {
   const nl = $("#novoLote");
   if (nl) nl.onclick = () => {
     const ultimo = antigos[0];
-    const n = { id: novoId(), lote: String(Math.max(0, ...av.lotes.map((x) => num(x.lote))) + 1), data: isoHoje(), alojada: 0, cama: ultimo ? num(ultimo.cama) + 1 : 1, pinto: 0.045, pesos: {}, oc: {}, encerrado: false };
+    // Só a data já vem preenchida (hoje); o resto o usuário digita.
+    const n = { id: novoId(), lote: "", data: isoHoje(), alojada: 0, cama: 0, pinto: 0, pesos: {}, oc: {}, encerrado: false };
     av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
   };
   app.querySelectorAll("[data-lt]").forEach((b) => (b.onclick = () => { lt = av.lotes.find((l) => l.id == b.dataset.lt); idade = idadeAtual(lt); tela = "registro"; telaRegistro(); }));
@@ -427,27 +429,27 @@ function telaRegistro() {
     `<section class="card"><div class="card-head"><div class="step">01</div><div><h2>Dados do lote</h2><p>Informações gerais do alojamento</p></div></div>
       <div class="grid2">
         ${campo("f-data", "Data aloja.", brData(lt.data), { mode: "numeric", ph: "dd/mm/aaaa" })}
-        ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "0" })}
-        ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "1" })}
-        ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "1" })}
-        ${campo("f-pinto", "Peso pinto", fmt(lt.pinto), { u: "kg" })}
-        ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text" })}
+        ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "digite" })}
+        ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "digite" })}
+        ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "digite" })}
+        ${campo("f-pinto", "Peso pinto", lt.pinto ? fmt(lt.pinto) : "", { u: "kg", ph: "digite" })}
+        ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text", ph: "digite" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
       <div class="rec"><div><span class="l">Peso referência</span><span class="v" id="rec"></span></div>
         <div><span class="l">Multiplicador</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
-      ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "0,000" })}
+      ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "digite" })}
       <div class="delta" id="delta"></div></section>
     <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Mortalidade</h2><p>Aos ${idade} dias. Cada idade tem a sua.</p></div></div>
       <div class="grid2">
-        ${campo("o-mortos", "Natural", o.mortos || "", { mode: "numeric", ph: "0" })}
-        ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
-        ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
-        ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-mortos", "Natural", o.mortos || "", { mode: "numeric", ph: "digite" })}
+        ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "digite" })}
+        ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "digite" })}
+        ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "digite" })}
       </div>
       <details class="apos" id="aposBox" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
-        <div class="apos-body">${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
+        <div class="apos-body">${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "digite" })}
         <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></div></details></section>
     <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
       <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
@@ -510,11 +512,11 @@ function telaRegistro() {
 
 function calcular(editou) {
   const rec = recomendado(lt, idade);
-  $("#rec").innerHTML = fmt(rec) + " <small>kg</small>";
+  $("#rec").innerHTML = rec > 0 ? fmt(rec) + " <small>kg</small>" : "–";
   $("#mult").textContent = fmt(MULT[idade], 1) + "×";
   $("#base").textContent = "";
   const p = lt.pesos[idade], dl = $("#delta");
-  if (p) { const d = dif(p, rec); dl.textContent = d.txt; dl.className = "delta " + d.cls; }
+  if (p && rec > 0) { const d = dif(p, rec); dl.textContent = d.txt; dl.className = "delta " + d.cls; }
   else { dl.textContent = ""; dl.className = "delta"; }
   // Só aparece depois de 35 dias completos desde o alojamento (vira à meia-noite, não importa a hora do cadastro). Se já tem número lançado, fica visível.
   $("#aposBox").hidden = !(diasDe(lt.data) >= 35 || num(lt.apos) > 0);
@@ -569,7 +571,7 @@ function montarPdf() {
     doc.text(d + " dias", cols[0] + 2, y + 6.5);
     doc.text(fmt(rec) + " kg", cols[1] + 2, y + 6.5);
     doc.setFont("helvetica", p ? "bold" : "normal"); doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 6.5); doc.setFont("helvetica", "normal");
-    if (p) {
+    if (p && rec > 0) {
       const d = dif(p, rec);
       doc.setTextColor(...(d.cls === "neg" ? [179, 38, 30] : d.cls === "pos" ? [35, 128, 90] : [20, 34, 47]));
       doc.text(d.txt, cols[3] + 2, y + 6.5);
