@@ -143,7 +143,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.22";
+const VERSAO = "1.23";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -291,7 +291,7 @@ function maskPeso(e) {
   let v = e.target.value.replace(/\./g, ",").replace(/[^\d,]/g, "");
   const i = v.indexOf(",");
   if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/,/g, "");
-  else if (/^0\d?/.test(v) && v.length >= 1) v = "0," + v.slice(1);
+  else if (v.length >= 2) v = v[0] + "," + v.slice(1); // a vírgula entra sozinha depois do 1º número (1645 vira 1,645)
   e.target.value = v;
 }
 
@@ -436,7 +436,7 @@ function telaRegistro() {
         ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div>
-      <details class="apos" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
+      <details class="apos" id="aposBox" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
         ${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
         <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></details></section>
     <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
@@ -506,6 +506,8 @@ function calcular(editou) {
   const p = lt.pesos[idade], dl = $("#delta");
   if (p) { const d = dif(p, rec); dl.textContent = d.txt; dl.className = "delta " + d.cls; }
   else { dl.textContent = ""; dl.className = "delta"; }
+  // Só aparece depois de 35 dias completos desde o alojamento (vira à meia-noite, não importa a hora do cadastro). Se já tem número lançado, fica visível.
+  $("#aposBox").hidden = !(diasDe(lt.data) >= 35 || num(lt.apos) > 0);
   $("#aposData").textContent = num(lt.apos) > 0 && lt.aposData ? "Atualizado em " + brData(lt.aposData) : "";
   $("#tot").textContent = fmtI(totalLote(lt));
   $("#totS").textContent = "aos " + idade + " dias: " + fmtI(totalOc(lt.oc[idade]));
