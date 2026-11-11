@@ -90,6 +90,9 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .btn.ghost { background: var(--card); color: var(--accent); border: 1.5px solid var(--accent); min-height: 52px; }
 .btn.danger { background: var(--card); color: var(--danger); border: 1.5px solid var(--danger); min-height: 48px; font-size: 15px; }
 .btn.danger.sure { background: var(--danger); color: #fff; }
+.apos summary { cursor: pointer; font-weight: 700; font-size: 15px; color: var(--accent); padding: 6px 0; list-style: none; }
+.apos summary::-webkit-details-marker { display: none; }
+.apos[open] summary { margin-bottom: 10px; }
 .hint { text-align: center; font-size: 13px; color: var(--mute); margin: 0; }
 
 .list { display: flex; flex-direction: column; gap: 10px; }
@@ -140,7 +143,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.21";
+const VERSAO = "1.22";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -177,8 +180,8 @@ const brData = (d) => d.split("-").reverse().join("/");
 const diasDe = (data) => Math.max(0, Math.floor((new Date(isoHoje() + "T00:00:00") - new Date(data + "T00:00:00")) / 864e5));
 const totalOc = (o) => (o ? num(o.mortos) + num(o.caq) + num(o.prob) + num(o.outros) : 0);
 const somaOc = (l, campo) => DIAS.reduce((t, d) => t + num((l.oc[d] || {})[campo]), 0);
-const totalLote = (l) => DIAS.reduce((t, d) => t + totalOc(l.oc[d]), 0);
-const pctMortos = (l) => (num(l.alojada) > 0 ? (somaOc(l, "mortos") / num(l.alojada)) * 100 : 0);
+const totalLote = (l) => DIAS.reduce((t, d) => t + totalOc(l.oc[d]), 0) + num(l.apos);
+const pctMortos = (l) => (num(l.alojada) > 0 ? ((somaOc(l, "mortos") + num(l.apos)) / num(l.alojada)) * 100 : 0);
 const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d <= x) || 35; };
 // Curva de referência do pai (tabela dele): cada idade multiplica a recomendada da anterior, sempre a partir do peso do pinto.
 function recomendado(l, d) {
@@ -418,7 +421,7 @@ function telaRegistro() {
         ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "1" })}
         ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "1" })}
         ${campo("f-pinto", "Peso pinto", fmt(lt.pinto), { u: "kg" })}
-        ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text", ph: "Nome do incubatório" })}
+        ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
@@ -432,7 +435,10 @@ function telaRegistro() {
         ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
         ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
-      </div></section>
+      </div>
+      <details class="apos" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
+        ${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
+        <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></details></section>
     <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
       <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
     <button class="btn" id="salvar">Salvar registro</button>
@@ -468,6 +474,7 @@ function telaRegistro() {
     if (await perguntar("Trocar a data de alojamento?", "De " + brData(lt.data) + " para " + brData(nova) + ". Isso muda a idade e o dia do lote.", "Sim, trocar", "Não, manter")) { lt.data = nova; salvar(); }
     volta(); calcular(true);
   });
+  ligar("#f-apos", (v) => { lt.apos = num(v); if (lt.apos > 0) lt.aposData = isoHoje(); else delete lt.aposData; });
   ligar("#f-alojada", (v) => (lt.alojada = num(v)));
   ligar("#f-cama", (v) => (lt.cama = num(v)));
   $("#f-lote").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
@@ -499,6 +506,7 @@ function calcular(editou) {
   const p = lt.pesos[idade], dl = $("#delta");
   if (p) { const d = dif(p, rec); dl.textContent = d.txt; dl.className = "delta " + d.cls; }
   else { dl.textContent = ""; dl.className = "delta"; }
+  $("#aposData").textContent = num(lt.apos) > 0 && lt.aposData ? "Atualizado em " + brData(lt.aposData) : "";
   $("#tot").textContent = fmtI(totalLote(lt));
   $("#totS").textContent = "aos " + idade + " dias: " + fmtI(totalOc(lt.oc[idade]));
   $("#pct").textContent = num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "–";
@@ -554,22 +562,26 @@ function montarPdf() {
   y += 12;
   doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Mortalidade", TX, y); y += 4;
   // Mesma disposição da folha do pai: idades nas colunas, tipos de mortalidade nas linhas.
-  const cw = 24, lw = 30, cx = (i) => TX + lw + i * cw;
+  const ap = num(lt.apos) > 0, cw = ap ? 20 : 24, lw = 30, cx = (i) => TX + lw + i * cw;
   doc.setFillColor(230, 240, 242); doc.rect(TX, y, TW, 9, "F");
   doc.setFontSize(10); doc.setTextColor(29, 98, 114); doc.setFont("helvetica", "bold");
   doc.text("Causa", TX + 2, y + 6);
   DIAS.forEach((d, i) => doc.text(String(d).padStart(2, "0") + " dias", cx(i) + cw / 2, y + 6, { align: "center" }));
+  if (ap) doc.text("Após 35", cx(5) + cw / 2, y + 6, { align: "center" });
   y += 9; doc.setTextColor(20, 34, 47); doc.setFontSize(11);
   [["Natural", "mortos"], ["Caq. / Ref.", "caq"], ["Prob. loc.", "prob"], ["Outros", "outros"]].forEach(([nome, c]) => {
     doc.setFont("helvetica", "bold"); doc.text(nome, TX + 2, y + 6.5);
     doc.setFont("helvetica", "normal");
     DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(num(o[c])) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
+    if (ap) doc.text("-", cx(5) + cw / 2, y + 6.5, { align: "center" });
     doc.setDrawColor(217, 225, 230); doc.line(TX, y + 10, TX + TW, y + 10);
     y += 10;
   });
   doc.setFont("helvetica", "bold"); doc.text("Total", TX + 2, y + 6.5);
   DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(totalOc(o)) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
+  if (ap) doc.text(fmtI(num(lt.apos)), cx(5) + cw / 2, y + 6.5, { align: "center" });
   y += 10;
+  if (ap && lt.aposData) { doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(107, 124, 137); doc.text("Após 35 dias: atualizado em " + brData(lt.aposData), TX + TW, y + 4, { align: "right" }); doc.setTextColor(20, 34, 47); }
   y += 10;
   doc.setFillColor(238, 243, 246); doc.roundedRect(TX, y, TW, 26, 4, 4, "F");
   doc.setTextColor(107, 124, 137); doc.setFontSize(9);
