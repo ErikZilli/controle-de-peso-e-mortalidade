@@ -140,7 +140,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.20";
+const VERSAO = "1.21";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -417,7 +417,8 @@ function telaRegistro() {
         ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "0" })}
         ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "1" })}
         ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "1" })}
-        ${campo("f-pinto", "Peso pinto (referência)", fmt(lt.pinto), { u: "kg" })}
+        ${campo("f-pinto", "Peso pinto", fmt(lt.pinto), { u: "kg" })}
+        ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text", ph: "Nome do incubatório" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
@@ -432,7 +433,7 @@ function telaRegistro() {
         ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
         ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div></section>
-    <section class="sum"><div><div class="l">Total do lote</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
+    <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
       <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
     <button class="btn" id="salvar">Salvar registro</button>
     <p class="hint">Tudo é salvo no aparelho conforme você digita.</p>
@@ -474,6 +475,7 @@ function telaRegistro() {
   $("#f-pinto").addEventListener("input", maskPeso);
   $("#f-peso").addEventListener("input", maskPeso);
   ligar("#f-pinto", (v) => (lt.pinto = num(v)));
+  ligar("#f-incub", (v) => (lt.incubatorio = v));
   ligar("#f-peso", (v) => { if (num(v) > 0) lt.pesos[idade] = num(v); else delete lt.pesos[idade]; });
   [["mortos", "#o-mortos"], ["caq", "#o-caq"], ["prob", "#o-prob"], ["outros", "#o-outros"]].forEach(([k, id]) => ligar(id, (v) => { lt.oc[idade] = lt.oc[idade] || {}; lt.oc[idade][k] = num(v); }));
   app.querySelectorAll(".age").forEach((b) => (b.onclick = () => { idade = +b.dataset.d; telaRegistro(); }));
@@ -508,70 +510,74 @@ function calcular(editou) {
 function montarPdf() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const W = 210, M = 16;
-  doc.setFillColor(29, 98, 114); doc.rect(0, 0, W, 34, "F");
-  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
-  doc.text("Controle de peso e mortalidade", M, 16);
+  const W = 210, M = 16, TW = 150, TX = (W - TW) / 2;
+  doc.setFillColor(230, 240, 242); doc.rect(0, 0, W, 34, "F");
+  doc.setTextColor(29, 98, 114); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
+  doc.text("Controle de peso e mortalidade", TX, 16);
   doc.setFont("helvetica", "normal"); doc.setFontSize(12);
-  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + nomeLote(lt), M, 26);
+  doc.text(av.nome + " (" + (av.tipo || TIPOS[0]) + ")  |  " + nomeLote(lt), TX, 26);
   doc.setTextColor(20, 34, 47);
   let y = 46;
-  const par = (a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, M, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, M, y + 5.5); };
-  const par2 = (x, a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, x, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, x, y + 5.5); };
-  par2(M, "Data de alojamento", brData(lt.data));
-  par2(M + 62, "Quantidade alojada", fmtI(num(lt.alojada)));
-  par2(M + 124, "Nº cama", String(num(lt.cama) || "-"));
+  const par = (a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, M, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, M, y + 6); };
+  const par2 = (x, a, b) => { doc.setFont("helvetica", "normal"); doc.setTextColor(107, 124, 137); doc.setFontSize(10); doc.text(a, x, y); doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(b, x, y + 6); };
+  par2(TX, "Data de alojamento", brData(lt.data));
+  par2(TX + 52, "Quantidade alojada", fmtI(num(lt.alojada)));
+  par2(TX + 104, "Nº cama", String(num(lt.cama) || "-"));
   y += 18;
-  par2(M, "Peso do pinto (referência)", fmt(lt.pinto) + " kg");
-  par2(M + 62, "Dia do lote", String(diasDe(lt.data)));
-  par2(M + 124, "Situação", lt.encerrado ? "Encerrado" : "Em andamento");
+  par2(TX, "Peso do pinto", fmt(lt.pinto) + " kg");
+  par2(TX + 52, "Dia do lote", String(diasDe(lt.data)));
+  let inc = (lt.incubatorio || "").trim() || "-";
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+  if (doc.getTextWidth(inc) > 46) { let t = inc; while (t.length > 1 && doc.getTextWidth(t + "...") > 46) t = t.slice(0, -1); inc = t.trimEnd() + "..."; }
+  par2(TX + 104, "Incubatório", inc);
   y += 20;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Pesagens", M, y); y += 4;
-  const cols = [M, M + 28, M + 76, M + 124, M + 156];
-  doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 8, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Pesagens", TX, y); y += 4;
+  const cols = [TX, TX + 28, TX + 68, TX + 104];
+  doc.setFillColor(230, 240, 242); doc.rect(TX, y, TW, 9, "F");
   doc.setFontSize(10); doc.setTextColor(29, 98, 114);
-  ["Idade", "Peso referência", "Peso real", "Diferença"].forEach((t, i) => doc.text(t, cols[i] + 2, y + 5.5));
-  y += 8; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
+  ["Idade", "Peso referência", "Peso real", "Diferença"].forEach((t, i) => doc.text(t, cols[i] + 2, y + 6));
+  y += 9; doc.setFont("helvetica", "normal"); doc.setTextColor(20, 34, 47); doc.setFontSize(11);
   DIAS.forEach((d) => {
     const rec = recomendado(lt, d), p = lt.pesos[d];
-    doc.text(d + " dias", cols[0] + 2, y + 5);
-    doc.text(fmt(rec) + " kg", cols[1] + 2, y + 5);
-    doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 5);
+    doc.text(d + " dias", cols[0] + 2, y + 6.5);
+    doc.text(fmt(rec) + " kg", cols[1] + 2, y + 6.5);
+    doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 6.5);
     if (p) {
       const d = dif(p, rec);
       doc.setTextColor(...(d.cls === "neg" ? [179, 38, 30] : d.cls === "pos" ? [35, 128, 90] : [20, 34, 47]));
-      doc.text(d.txt, cols[3] + 2, y + 5);
+      doc.text(d.txt, cols[3] + 2, y + 6.5);
       doc.setTextColor(20, 34, 47);
-    } else doc.text("-", cols[3] + 2, y + 5);
-    doc.setDrawColor(217, 225, 230); doc.line(M, y + 7, W - M, y + 7);
-    y += 7;
+    } else doc.text("-", cols[3] + 2, y + 6.5);
+    doc.setDrawColor(217, 225, 230); doc.line(TX, y + 10, TX + TW, y + 10);
+    y += 10;
   });
   y += 12;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Mortalidade", M, y); y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(20, 34, 47); doc.text("Mortalidade", TX, y); y += 4;
   // Mesma disposição da folha do pai: idades nas colunas, tipos de mortalidade nas linhas.
-  const cw = 28, lw = 38, cx = (i) => M + lw + i * cw;
-  doc.setFillColor(230, 240, 242); doc.rect(M, y, W - 2 * M, 8, "F");
+  const cw = 24, lw = 30, cx = (i) => TX + lw + i * cw;
+  doc.setFillColor(230, 240, 242); doc.rect(TX, y, TW, 9, "F");
   doc.setFontSize(10); doc.setTextColor(29, 98, 114); doc.setFont("helvetica", "bold");
+  doc.text("Causa", TX + 2, y + 6);
   DIAS.forEach((d, i) => doc.text(String(d).padStart(2, "0") + " dias", cx(i) + cw / 2, y + 6, { align: "center" }));
-  y += 8; doc.setTextColor(20, 34, 47); doc.setFontSize(11);
+  y += 9; doc.setTextColor(20, 34, 47); doc.setFontSize(11);
   [["Natural", "mortos"], ["Caq. / Ref.", "caq"], ["Prob. loc.", "prob"], ["Outros", "outros"]].forEach(([nome, c]) => {
-    doc.setFont("helvetica", "bold"); doc.text(nome, M + 2, y + 5);
+    doc.setFont("helvetica", "bold"); doc.text(nome, TX + 2, y + 6.5);
     doc.setFont("helvetica", "normal");
-    DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(num(o[c])) : "-", cx(i) + cw / 2, y + 5, { align: "center" }); });
-    doc.setDrawColor(217, 225, 230); doc.line(M, y + 7, W - M, y + 7);
-    y += 7;
+    DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(num(o[c])) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
+    doc.setDrawColor(217, 225, 230); doc.line(TX, y + 10, TX + TW, y + 10);
+    y += 10;
   });
-  doc.setFont("helvetica", "bold"); doc.text("Total", M + 2, y + 5);
-  DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(totalOc(o)) : "-", cx(i) + cw / 2, y + 5, { align: "center" }); });
-  y += 7;
-  y += 8;
-  doc.setFillColor(34, 56, 83); doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, "F");
-  doc.setTextColor(159, 176, 195); doc.setFontSize(9);
-  doc.text("TOTAL DO LOTE", M + 8, y + 9); doc.text("% MORTOS", M + 100, y + 9);
-  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
-  doc.text(fmtI(totalLote(lt)), M + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", M + 100, y + 20);
+  doc.setFont("helvetica", "bold"); doc.text("Total", TX + 2, y + 6.5);
+  DIAS.forEach((d, i) => { const o = lt.oc[d]; doc.text(o ? fmtI(totalOc(o)) : "-", cx(i) + cw / 2, y + 6.5, { align: "center" }); });
+  y += 10;
+  y += 10;
+  doc.setFillColor(238, 243, 246); doc.roundedRect(TX, y, TW, 26, 4, 4, "F");
+  doc.setTextColor(107, 124, 137); doc.setFontSize(9);
+  doc.text("TOTAL DE MORTOS", TX + 8, y + 9); doc.text("% MORTOS", TX + 80, y + 9);
+  doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
+  doc.text(fmtI(totalLote(lt)), TX + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", TX + 80, y + 20);
   doc.setTextColor(107, 124, 137); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-  doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade (versão " + VERSAO + ")", M, 288);
+  doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade (versão " + VERSAO + ")", TX, 288);
   return doc;
 }
 async function compartilharPdf() {
