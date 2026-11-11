@@ -154,7 +154,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.25";
+const VERSAO = "1.26";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -402,7 +402,6 @@ function telaLotes(editando = false) {
   }
   const nl = $("#novoLote");
   if (nl) nl.onclick = () => {
-    const ultimo = antigos[0];
     // Só a data já vem preenchida (hoje); o resto o usuário digita.
     const n = { id: novoId(), lote: "", data: isoHoje(), alojada: 0, cama: 0, pinto: 0, pesos: {}, oc: {}, encerrado: false };
     av.lotes.unshift(n); salvar(); lt = n; idade = 7; tela = "registro"; telaRegistro();
@@ -429,27 +428,27 @@ function telaRegistro() {
     `<section class="card"><div class="card-head"><div class="step">01</div><div><h2>Dados do lote</h2><p>Informações gerais do alojamento</p></div></div>
       <div class="grid2">
         ${campo("f-data", "Data aloja.", brData(lt.data), { mode: "numeric", ph: "dd/mm/aaaa" })}
-        ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "digite" })}
-        ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "digite" })}
-        ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "digite" })}
-        ${campo("f-pinto", "Peso pinto", lt.pinto ? fmt(lt.pinto) : "", { u: "kg", ph: "digite" })}
+        ${campo("f-alojada", "Quant. alojada", lt.alojada || "", { mode: "numeric", ph: "0" })}
+        ${campo("f-lote", "Lote", lt.lote, { mode: "numeric", ph: "0" })}
+        ${campo("f-cama", "Nº cama", lt.cama || "", { mode: "numeric", ph: "0" })}
+        ${campo("f-pinto", "Peso pinto", lt.pinto ? fmt(lt.pinto) : "", { u: "kg", ph: "0" })}
         ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text", ph: "digite" })}
       </div></section>
     <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
       <div class="rec"><div><span class="l">Peso referência</span><span class="v" id="rec"></span></div>
         <div><span class="l">Multiplicador</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
-      ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "digite" })}
+      ${campo("f-peso", `Peso aos ${idade} dias`, lt.pesos[idade] ? fmt(lt.pesos[idade]) : "", { u: "kg", ph: "0" })}
       <div class="delta" id="delta"></div></section>
     <section class="card"><div class="card-head"><div class="step">03</div><div><h2>Mortalidade</h2><p>Aos ${idade} dias. Cada idade tem a sua.</p></div></div>
       <div class="grid2">
-        ${campo("o-mortos", "Natural", o.mortos || "", { mode: "numeric", ph: "digite" })}
-        ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "digite" })}
-        ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "digite" })}
-        ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "digite" })}
+        ${campo("o-mortos", "Natural", o.mortos || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-caq", "Caq. / Ref.", o.caq || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-prob", "Prob. loc.", o.prob || "", { mode: "numeric", ph: "0" })}
+        ${campo("o-outros", "Outros", o.outros || "", { mode: "numeric", ph: "0" })}
       </div>
       <details class="apos" id="aposBox" ${num(lt.apos) > 0 ? "open" : ""}><summary>+ Mortalidade após 35 dias</summary>
-        <div class="apos-body">${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "digite" })}
+        <div class="apos-body">${campo("f-apos", "Mortos após os 35 dias", lt.apos || "", { mode: "numeric", ph: "0" })}
         <p class="hint" id="aposData" style="text-align:left;margin-top:8px"></p></div></details></section>
     <section class="sum"><div><div class="l">Total de mortos</div><div class="v" id="tot"></div><div class="s" id="totS"></div></div>
       <div><div class="l">% mortos</div><div class="v" id="pct"></div><div class="s">todas as idades</div></div></section>
