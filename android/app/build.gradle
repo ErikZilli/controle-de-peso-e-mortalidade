@@ -7,8 +7,8 @@ android {
         applicationId 'br.com.controlealojamento.app'
         minSdk 23
         targetSdk 28
-        versionCode 28
-        versionName '1.26'
+        versionCode 29
+        versionName '1.27'
     }
     // O app web mora em ../../web e entra no APK como assets.
     sourceSets { main { assets.srcDirs = ['../../web'] } }

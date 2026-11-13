@@ -154,7 +154,7 @@ const DIAS = [7, 14, 21, 28, 35];
 const MULT = { 7: 4.3, 14: 2.5, 21: 2, 28: 1.7, 35: 1.5 };
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.26";
+const VERSAO = "1.27";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -192,7 +192,7 @@ const diasDe = (data) => Math.max(0, Math.floor((new Date(isoHoje() + "T00:00:00
 const totalOc = (o) => (o ? num(o.mortos) + num(o.caq) + num(o.prob) + num(o.outros) : 0);
 const somaOc = (l, campo) => DIAS.reduce((t, d) => t + num((l.oc[d] || {})[campo]), 0);
 const totalLote = (l) => DIAS.reduce((t, d) => t + totalOc(l.oc[d]), 0) + num(l.apos);
-const pctMortos = (l) => (num(l.alojada) > 0 ? ((somaOc(l, "mortos") + num(l.apos)) / num(l.alojada)) * 100 : 0);
+const pctMortos = (l) => (num(l.alojada) > 0 ? (totalLote(l) / num(l.alojada)) * 100 : 0);
 const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d <= x) || 35; };
 // Curva de referência do pai (tabela dele): cada idade multiplica a recomendada da anterior, sempre a partir do peso do pinto.
 function recomendado(l, d) {
