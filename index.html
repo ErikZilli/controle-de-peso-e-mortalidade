@@ -161,7 +161,7 @@ const MULT = { 7: 4.14, 14: 2.75, 21: 2.09, 28: 1.75, 35: 1.51 }; // pai, 2026-1
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const PROJ = [[36, 134.8], [37, 136], [38, 136], [39, 137.1], [40, 137.1]]; // ganho em gramas por dia após os 35 (pai, 2026-11-18)
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.31";
+const VERSAO = "1.32";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -510,6 +510,7 @@ function telaRegistro() {
   $("#voltar").onclick = irLotes;
   $("#salvar").onclick = () => { salvar(); const e = $("#estado"); e.textContent = "Salvo"; e.classList.add("saved"); toast("Registro salvo"); };
   $("#pdf").onclick = compartilharPdf;
+  $("#pdf").addEventListener("pointerdown", () => { try { prepararPdf(); } catch (e) {} });
   const enc = $("#encerrar");
   if (enc) confirmar("#encerrar", "Encerrar lote (abate)", "Toque de novo para encerrar este lote", () => { lt.encerrado = true; salvar(); irLotes(); toast("Lote encerrado. Já pode criar o próximo"); });
   $("#exLote").onclick = async () => {
@@ -654,25 +655,51 @@ function montarPdf() {
   doc.text("Gerado em " + brData(isoHoje()) + " pelo app Controle de Peso e Mortalidade (versão " + VERSAO + ")", TX, 288);
   return doc;
 }
+// 2026-11-18: no site (PWA) o Chrome passou a recusar o compartilhar com "NotAllowedError: Permission denied".
+// Correção: (1) o PDF é montado ANTES, ao encostar o dedo no botão, pra o compartilhar sair na hora do toque;
+// (2) nome do arquivo só com letras sem acento, números, espaço e hífen. Se ainda falhar, abre um aviso com
+// "Tentar de novo" (nome simples, sem texto) e "Baixar PDF".
+let pdfPronto = null;
+function prepararPdf() {
+  const chave = JSON.stringify([av && av.nome, av && av.tipo, lt]);
+  if (pdfPronto && pdfPronto.chave === chave) return pdfPronto;
+  const doc = montarPdf();
+  const ult = DIAS.filter((d) => num(lt.pesos[d]) > 0).pop();
+  const base = (av.nome + " - " + nomeLote(lt) + (ult ? " - " + ult + " dias" : ""))
+    .normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9 _-]/g, "-").replace(/\s+/g, " ").trim() || "registro";
+  const nome = base + ".pdf";
+  const blob = doc.output("blob");
+  pdfPronto = { chave, doc, nome, blob, arq: new File([blob], nome, { type: "application/pdf" }),
+    msg: av.nome + " | " + nomeLote(lt) + " | alojado em " + brData(lt.data) };
+  return pdfPronto;
+}
+function avisoPdf(motivo, p) {
+  const fundo = document.createElement("div");
+  fundo.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99;padding:16px";
+  fundo.innerHTML = `<div style="background:var(--card,#fff);color:inherit;border-radius:20px;padding:20px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:10px">
+    <b>Não deu pra compartilhar</b><small style="color:var(--mute,#667)">${esc(motivo)}</small>
+    <button class="btn" id="pdfDeNovo">Tentar de novo</button><button class="btn ghost" id="pdfBaixar">Baixar PDF</button><button class="btn ghost" id="pdfFechar">Fechar</button></div>`;
+  document.body.appendChild(fundo);
+  const fecha = () => fundo.remove();
+  $("#pdfFechar", fundo).onclick = fecha;
+  $("#pdfBaixar", fundo).onclick = () => { fecha(); p.doc.save(p.nome); toast("PDF baixado"); };
+  $("#pdfDeNovo", fundo).onclick = async () => {
+    fecha();
+    try { await navigator.share({ files: [new File([p.blob], "registro.pdf", { type: "application/pdf" })] }); }
+    catch (e) { if (e && e.name === "AbortError") return; alert("Também não deu (" + e.name + ": " + e.message + "). Use Baixar PDF."); }
+  };
+}
 async function compartilharPdf() {
-  let doc = null, nome = "registro.pdf";
+  let p = null;
   try {
-    doc = montarPdf();
-    // Nome do arquivo (pai, 2026-11-18): aviário - lote - idade da última pesagem (ex.: "Avi 01 - Lote 3 - 35 dias.pdf").
-    const ult = DIAS.filter((d) => num(lt.pesos[d]) > 0).pop();
-    nome = (av.nome + " - " + nomeLote(lt) + (ult ? " - " + ult + " dias" : "")).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
-    const msg = av.nome + " | " + nomeLote(lt) + " | alojado em " + brData(lt.data);
-    if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(doc.output("datauristring").split(",")[1], nome, msg); return; }
-    const arq = new File([doc.output("blob")], nome, { type: "application/pdf" });
-    if (navigator.canShare && navigator.canShare({ files: [arq] })) { await navigator.share({ files: [arq], title: nome, text: msg }); }
-    else { try { alert("Este navegador não aceitou compartilhar o arquivo (canShare = " + (navigator.canShare ? "não" : "sem suporte") + ").\n\nO PDF vai ser baixado no celular."); } catch (e3) {} doc.save(nome); toast("PDF baixado"); }
+    p = prepararPdf();
+    if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(p.doc.output("datauristring").split(",")[1], p.nome, p.msg); return; }
+    if (navigator.canShare && navigator.canShare({ files: [p.arq] })) { await navigator.share({ files: [p.arq], title: p.nome, text: p.msg }); }
+    else { p.doc.save(p.nome); toast("PDF baixado"); }
   } catch (e) {
     if (e && e.name === "AbortError") return;
     const motivo = e ? (e.name || "Erro") + ": " + (e.message || "") : "";
-    // 2026-11-18: compartilhar falhou no site do pai. Se o PDF ficou pronto, baixa no celular pra mandar na mão, e mostra o motivo.
-    try { alert("Não deu pra compartilhar.\nMotivo: " + motivo + "\n\nO PDF vai ser baixado no celular."); } catch (e3) {}
-    if (doc) { try { doc.save(nome); toast("Não deu pra compartilhar. PDF baixado no celular. (" + motivo + ")", 9000); return; } catch (e2) {} }
-    toast("Não foi possível gerar o PDF (" + motivo + ")", 9000);
+    if (p) avisoPdf(motivo, p); else toast("Não foi possível gerar o PDF (" + motivo + ")", 9000);
   }
 }
 
