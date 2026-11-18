@@ -161,7 +161,7 @@ const MULT = { 7: 4.14, 14: 2.75, 21: 2.09, 28: 1.75, 35: 1.51 }; // pai, 2026-1
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const PROJ = [[36, 134.8], [37, 136], [38, 136], [39, 137.1], [40, 137.1]]; // ganho em gramas por dia após os 35 (pai, 2026-11-18)
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.30";
+const VERSAO = "1.31";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -626,9 +626,16 @@ function montarPdf() {
   y += 10;
   doc.setFillColor(238, 243, 246); doc.roundedRect(TX, y, TW, 26, 4, 4, "F");
   doc.setTextColor(107, 124, 137); doc.setFontSize(9);
-  doc.text("TOTAL DE MORTOS", TX + 8, y + 9); doc.text("% MORTOS", TX + 80, y + 9);
+  // GPD no PDF (pai, 2026-11-18): da última idade pesada (peso ÷ dias, em gramas); vermelho se o peso ficou abaixo da referência.
+  const uG = DIAS.filter((d) => num(lt.pesos[d]) > 0).pop();
+  doc.text("TOTAL DE MORTOS", TX + 8, y + 9); doc.text("% MORTOS", TX + 58, y + 9); doc.text(uG ? "GPD (" + uG + " DIAS)" : "GPD", TX + 106, y + 9);
   doc.setTextColor(20, 34, 47); doc.setFont("helvetica", "bold"); doc.setFontSize(20);
-  doc.text(fmtI(totalLote(lt)), TX + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", TX + 80, y + 20);
+  doc.text(fmtI(totalLote(lt)), TX + 8, y + 20); doc.text(num(lt.alojada) > 0 ? fmt(pctMortos(lt), 2) + "%" : "-", TX + 58, y + 20);
+  if (uG) {
+    const pG = num(lt.pesos[uG]), rG = recomendado(lt, uG);
+    if (rG > 0 && dif(pG, rG).kg < 0) doc.setTextColor(179, 38, 30);
+    doc.text(fmt((pG * 1000) / uG, 1) + " g", TX + 106, y + 20); doc.setTextColor(20, 34, 47);
+  } else doc.text("-", TX + 106, y + 20);
   // Projeção 36 a 40 dias (pai, 2026-11-18): só com o peso dos 35 dias; letra pequena, logo abaixo do quadro de mortos.
   const p35 = num(lt.pesos[35]);
   if (p35 > 0) {
@@ -658,11 +665,12 @@ async function compartilharPdf() {
     if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(doc.output("datauristring").split(",")[1], nome, msg); return; }
     const arq = new File([doc.output("blob")], nome, { type: "application/pdf" });
     if (navigator.canShare && navigator.canShare({ files: [arq] })) { await navigator.share({ files: [arq], title: nome, text: msg }); }
-    else { doc.save(nome); toast("PDF baixado"); }
+    else { try { alert("Este navegador não aceitou compartilhar o arquivo (canShare = " + (navigator.canShare ? "não" : "sem suporte") + ").\n\nO PDF vai ser baixado no celular."); } catch (e3) {} doc.save(nome); toast("PDF baixado"); }
   } catch (e) {
     if (e && e.name === "AbortError") return;
     const motivo = e ? (e.name || "Erro") + ": " + (e.message || "") : "";
     // 2026-11-18: compartilhar falhou no site do pai. Se o PDF ficou pronto, baixa no celular pra mandar na mão, e mostra o motivo.
+    try { alert("Não deu pra compartilhar.\nMotivo: " + motivo + "\n\nO PDF vai ser baixado no celular."); } catch (e3) {}
     if (doc) { try { doc.save(nome); toast("Não deu pra compartilhar. PDF baixado no celular. (" + motivo + ")", 9000); return; } catch (e2) {} }
     toast("Não foi possível gerar o PDF (" + motivo + ")", 9000);
   }
