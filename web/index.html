@@ -161,7 +161,7 @@ const MULT = { 7: 4.14, 14: 2.75, 21: 2.09, 28: 1.75, 35: 1.51 }; // pai, 2026-1
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const PROJ = [[36, 134.8], [37, 136], [38, 136], [39, 137.1], [40, 137.1]]; // ganho em gramas por dia após os 35 (pai, 2026-11-18)
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.33";
+const VERSAO = "1.34";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -655,17 +655,23 @@ function montarPdf() {
   return doc;
 }
 async function compartilharPdf() {
+  let doc = null, nome = "registro.pdf";
   try {
-    const doc = montarPdf();
+    doc = montarPdf();
     // Nome do arquivo (pai, 2026-11-18): aviário - lote - idade da última pesagem (ex.: "Avi 01 - Lote 3 - 35 dias.pdf").
     const ult = DIAS.filter((d) => num(lt.pesos[d]) > 0).pop();
-    const nome = (av.nome + " - " + nomeLote(lt) + (ult ? " - " + ult + " dias" : "")).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
+    nome = (av.nome + " - " + nomeLote(lt) + (ult ? " - " + ult + " dias" : "")).replace(/[\\/:*?"<>|]/g, "-") + ".pdf";
     const msg = av.nome + " | " + nomeLote(lt) + " | alojado em " + brData(lt.data);
     if (window.AndroidBridge && AndroidBridge.sharePdf) { AndroidBridge.sharePdf(doc.output("datauristring").split(",")[1], nome, msg); return; }
     const arq = new File([doc.output("blob")], nome, { type: "application/pdf" });
     if (navigator.canShare && navigator.canShare({ files: [arq] })) { await navigator.share({ files: [arq], title: nome, text: msg }); }
     else { doc.save(nome); toast("PDF baixado"); }
-  } catch (e) { if (e && e.name !== "AbortError") toast("Não foi possível gerar o PDF"); }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    // Erik, 2026-11-19: se o compartilhar falhar, só baixa o PDF, sem aviso nenhum.
+    if (doc) { try { doc.save(nome); return; } catch (e2) {} }
+    toast("Não foi possível gerar o PDF");
+  }
 }
 
 // PWA: ao abrir ou voltar pro app, confere se saiu versão nova e recarrega sozinho (uma vez por versão).
