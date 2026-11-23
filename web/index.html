@@ -132,6 +132,15 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .dlg { background: var(--card); border-radius: 24px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
 .dlg h2 { font-size: 20px; }
 .dlg p { margin: 0; color: var(--mute); font-size: 15px; }
+/* Rodinhas da data: dia, mês e ano giram separados. */
+.rodas { position: relative; display: grid; grid-template-columns: 1fr 1.3fr 1.3fr; gap: 8px; height: 220px; margin: 4px 0; }
+.rodas::before { content: ""; position: absolute; left: 0; right: 0; top: 88px; height: 44px; background: var(--accent-soft); border-radius: 12px; pointer-events: none; }
+.roda { position: relative; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; padding: 88px 0; -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+.roda::-webkit-scrollbar { display: none; }
+.roda div { height: 44px; display: grid; place-items: center; scroll-snap-align: center; font-size: 20px; font-weight: 600; color: var(--mute); }
+.roda div.sel { color: var(--accent); font-weight: 800; font-size: 22px; }
+.rodas-tit { display: grid; grid-template-columns: 1fr 1.3fr 1.3fr; gap: 8px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+#f-data { cursor: pointer; }
 .swipe { position: relative; border-radius: 20px; overflow: hidden; }
 .swipe .acts { position: absolute; inset: 0 0 0 auto; width: 152px; display: flex; opacity: 0; }
 .swipe.open .acts, .swipe.dragging .acts { opacity: 1; }
@@ -144,7 +153,7 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .swipe.open .row, .swipe.dragging .row { border-radius: 20px 0 0 20px; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .dbtn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
-.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: 90vw; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--deep); color: var(--deep-ink); padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 60; max-width: 90vw; text-align: center; }
 .toast[hidden] { display: none; }
 </style>
 </head>
@@ -161,7 +170,7 @@ const MULT = { 7: 4.14, 14: 2.75, 21: 2.09, 28: 1.75, 35: 1.51 }; // pai, 2026-1
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const PROJ = [[36, 134.8], [37, 136], [38, 136], [39, 137.1], [40, 137.1]]; // ganho em gramas por dia após os 35 (pai, 2026-11-18)
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.34";
+const VERSAO = "1.35";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -185,7 +194,7 @@ carregar();
 const $ = (s, r = document) => r.querySelector(s);
 const app = $("#app");
 let tela = "aviarios", av = null, lt = null, idade = 7;
-const hoje = new Date();
+let hoje = new Date(); // atualizado ao voltar pro app e ao abrir as rodinhas (vira a meia-noite certinho)
 const pad = (n) => String(n).padStart(2, "0");
 const isoHoje = () => hoje.getFullYear() + "-" + pad(hoje.getMonth() + 1) + "-" + pad(hoje.getDate());
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -236,6 +245,70 @@ function perguntar(titulo, texto, simTxt, naoTxt) {
     $("#ds", m).onclick = () => fim(true);
     $("#dn", m).onclick = () => fim(false);
     $("#dn", m).focus();
+  });
+}
+
+// Escolher data com 3 rodinhas (dia, mês, ano). Devolve "aaaa-mm-dd" ou null se cancelar.
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+function escolherData(iso) {
+  hoje = new Date();
+  return new Promise((resolve) => {
+    let [ano, mes, dia] = iso.split("-").map(Number);
+    const anoIni = Math.min(2020, ano), anoFim = hoje.getFullYear();
+    if (ano > anoFim) { ano = anoFim; mes = hoje.getMonth() + 1; dia = hoje.getDate(); }
+    const anos = []; for (let a = anoIni; a <= anoFim; a++) anos.push(a);
+    const diasNoMes = () => new Date(ano, mes, 0).getDate();
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">Data de alojamento</h2>
+      <div class="rodas-tit"><span>Dia</span><span>Mês</span><span>Ano</span></div>
+      <div class="rodas"><div class="roda" id="rd" aria-label="Dia"></div><div class="roda" id="rm" aria-label="Mês"></div><div class="roda" id="ra" aria-label="Ano"></div></div>
+      <div class="dbtn"><button class="btn ghost" id="dn">Cancelar</button><button class="btn" id="ds">Salvar data</button></div></div>`;
+    document.body.appendChild(m);
+    const H = 44;
+    const roda = (el, itens, sel, aoMudar) => {
+      el.innerHTML = itens.map((t) => `<div>${t}</div>`).join("");
+      const marca = (i) => [...el.children].forEach((c, k) => c.classList.toggle("sel", k === i));
+      el.scrollTop = sel * H; marca(sel);
+      let t;
+      el.onscroll = () => {
+        const i = Math.max(0, Math.min(itens.length - 1, Math.round(el.scrollTop / H)));
+        marca(i);
+        clearTimeout(t); t = setTimeout(() => aoMudar(i), 120);
+      };
+      [...el.children].forEach((c, k) => (c.onclick = () => el.scrollTo({ top: k * H, behavior: "smooth" })));
+    };
+    const rd = $("#rd", m), rm = $("#rm", m), ra = $("#ra", m);
+    const montaDias = () => {
+      const n = diasNoMes(); if (dia > n) dia = n;
+      if (rd.children.length === n) return;
+      roda(rd, Array.from({ length: n }, (_, i) => pad(i + 1)), dia - 1, (i) => { dia = i + 1; limita(); });
+    };
+    // Data no futuro não vale: as rodinhas voltam sozinhas para hoje.
+    const dataSel = () => ano + "-" + pad(mes) + "-" + pad(dia);
+    const limita = () => {
+      if (dataSel() <= isoHoje()) return;
+      mes = Math.min(mes, hoje.getMonth() + 1);
+      if (dataSel() > isoHoje()) dia = Math.min(dia, hoje.getDate());
+      rm.scrollTo({ top: (mes - 1) * H, behavior: "smooth" });
+      montaDias(); rd.scrollTo({ top: (dia - 1) * H, behavior: "smooth" });
+      toast("Escolha uma data válida");
+    };
+    requestAnimationFrame(() => {
+      montaDias();
+      roda(rm, MESES, mes - 1, (i) => { mes = i + 1; montaDias(); limita(); });
+      roda(ra, anos, anos.indexOf(ano), (i) => { ano = anos[i]; montaDias(); limita(); });
+      if (dataSel() > isoHoje()) limita();
+    });
+    const fim = (r) => { m.remove(); resolve(r); };
+    $("#ds", m).onclick = () => {
+      // Lê a posição final das rodinhas (caso o dedo tenha acabado de soltar).
+      dia = Math.round(rd.scrollTop / H) + 1; mes = Math.round(rm.scrollTop / H) + 1; ano = anos[Math.round(ra.scrollTop / H)];
+      dia = Math.min(dia, diasNoMes());
+      if (dataSel() > isoHoje()) { limita(); return; }
+      fim(dataSel());
+    };
+    $("#dn", m).onclick = () => fim(null);
   });
 }
 
@@ -470,30 +543,13 @@ function telaRegistro() {
   calcular(false);
 
   const ligar = (id, fn) => $(id).addEventListener("input", (e) => { fn(e.target.value); salvar(); calcular(true); });
+  // Data: toque abre as rodinhas (sem teclado). Só troca depois de "Salvar data".
   const fData = $("#f-data");
-  fData.addEventListener("input", (e) => {
-    const d = e.target.value.replace(/\D/g, "").slice(0, 8);
-    e.target.value = d.length > 4 ? d.slice(0, 2) + "/" + d.slice(2, 4) + "/" + d.slice(4) : d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d;
-  });
-  // Só troca a data depois de confirmar. Em branco, pergunta se pode usar a data de hoje.
-  fData.addEventListener("change", async () => {
-    const d = fData.value.replace(/\D/g, "");
-    const volta = () => { fData.value = brData(lt.data); };
-    if (d.length === 0) {
-      const hoje = isoHoje();
-      if (hoje !== lt.data && await perguntar("Data em branco", "Usar a data de hoje (" + brData(hoje) + ") como data de alojamento?", "Sim, usar hoje", "Não")) { lt.data = hoje; salvar(); }
-      volta(); calcular(true); return;
-    }
-    let nova = null;
-    if (d.length === 8) {
-      const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4);
-      const dt = new Date(ano, mes - 1, dia);
-      if (dt.getFullYear() === ano && dt.getMonth() === mes - 1 && dt.getDate() === dia) nova = ano + "-" + d.slice(2, 4) + "-" + d.slice(0, 2);
-    }
-    if (!nova) { toast("Data inválida. Use dia/mês/ano"); volta(); return; }
-    if (nova === lt.data) { volta(); return; }
-    if (await perguntar("Trocar a data de alojamento?", "De " + brData(lt.data) + " para " + brData(nova) + ". Isso muda a idade e o dia do lote.", "Sim, trocar", "Não, manter")) { lt.data = nova; salvar(); }
-    volta(); calcular(true);
+  fData.readOnly = true; fData.setAttribute("inputmode", "none");
+  fData.addEventListener("click", async () => {
+    const nova = await escolherData(lt.data);
+    if (nova && nova !== lt.data) { lt.data = nova; salvar(); toast("Data trocada para " + brData(nova)); }
+    fData.value = brData(lt.data); calcular(true);
   });
   ligar("#f-apos", (v) => { lt.apos = num(v); if (lt.apos > 0) lt.aposData = isoHoje(); else delete lt.aposData; });
   ligar("#f-alojada", (v) => (lt.alojada = num(v)));
@@ -688,7 +744,7 @@ async function verificarAtualizacao() {
     setTimeout(() => location.reload(), 900);
   } catch (e) {}
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") verificarAtualizacao(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { hoje = new Date(); verificarAtualizacao(); } });
 verificarAtualizacao();
 
 telaAviarios();
