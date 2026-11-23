@@ -141,6 +141,7 @@ button { user-select: none; -webkit-user-select: none; transition: transform .14
 .roda div.sel { color: var(--accent); font-weight: 800; font-size: 22px; }
 .rodas-tit { display: grid; grid-template-columns: 1fr 1.3fr 1.3fr; gap: 8px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
 #f-data { cursor: pointer; }
+.delta.info { font-size: 14px; font-weight: 600; color: var(--mute); }
 .swipe { position: relative; border-radius: 20px; overflow: hidden; }
 .swipe .acts { position: absolute; inset: 0 0 0 auto; width: 152px; display: flex; opacity: 0; }
 .swipe.open .acts, .swipe.dragging .acts { opacity: 1; }
@@ -170,7 +171,7 @@ const MULT = { 7: 4.14, 14: 2.75, 21: 2.09, 28: 1.75, 35: 1.51 }; // pai, 2026-1
 const ANT = { 14: 7, 21: 14, 28: 21, 35: 28 };
 const PROJ = [[36, 134.8], [37, 136], [38, 136], [39, 137.1], [40, 137.1]]; // ganho em gramas por dia após os 35 (pai, 2026-11-18)
 const KEY = "controle-alojamento.v1";
-const VERSAO = "1.35";
+const VERSAO = "1.36";
 const TIPOS = ["Convencional", "Modal", "Dark House"];
 let tipoSel = TIPOS[0];
 
@@ -214,8 +215,9 @@ const idadeAtual = (l) => { const d = diasDe(l.data); return DIAS.find((x) => d 
 // Se a idade anterior ainda não foi pesada, usa a referência dela no lugar.
 function recomendado(l, d) {
   if (d === 7) return l.pinto * MULT[7];
-  const ant = ANT[d], base = num(l.pesos[ant]) > 0 ? num(l.pesos[ant]) : recomendado(l, ant);
-  return base * MULT[d];
+  // Pai, 2026-11-23: 14 a 35 dias só têm referência se a idade anterior foi pesada. Sem peso anterior, fica em branco ("–").
+  const base = num(l.pesos[ANT[d]]);
+  return base > 0 ? base * MULT[d] : 0;
 }
 // Diferença do peso real contra a referência JÁ ARREDONDADA (a que aparece na tela): peso igual ao mostrado = 0%.
 function dif(p, rec) {
@@ -516,7 +518,7 @@ function telaRegistro() {
         ${campo("f-pinto", "Peso pinto", lt.pinto ? fmt(lt.pinto) : "", { u: "kg", ph: "0" })}
         ${campo("f-incub", "Incubatório", lt.incubatorio || "", { mode: "text", ph: "digite" })}
       </div></section>
-    <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>A referência é calculada a partir do peso pinto</p></div></div>
+    <section class="card"><div class="card-head"><div class="step">02</div><div><h2>Idade do lote</h2><p>7 dias pelo peso pinto; depois, pelo peso da idade anterior</p></div></div>
       <div class="ages" role="group" aria-label="Idade do lote">${DIAS.map((d) => `<button class="age ${lt.pesos[d] || totalOc(lt.oc[d]) > 0 ? "done" : ""}" data-d="${d}" aria-pressed="${d === idade}"><b>${d}</b><small>dias</small></button>`).join("")}</div>
       <div class="rec"><div><span class="l">Peso referência</span><span class="v" id="rec"></span></div>
         <div class="gpd"><span class="l">GPD</span><span class="v" id="mult"></span><span class="delta" id="base"></span></div></div>
@@ -593,6 +595,7 @@ function calcular(editou) {
   $("#base").textContent = "";
   const p = lt.pesos[idade], dl = $("#delta");
   if (p && rec > 0) { const d = dif(p, rec); dl.textContent = d.txt; dl.className = "delta " + d.cls; }
+  else if (idade > 7 && rec === 0) { dl.textContent = "Sem referência: falta o peso aos " + ANT[idade] + " dias"; dl.className = "delta info"; }
   else { dl.textContent = ""; dl.className = "delta"; }
   // Só aparece depois de 35 dias completos desde o alojamento (vira à meia-noite, não importa a hora do cadastro). Se já tem número lançado, fica visível.
   $("#aposBox").hidden = !(diasDe(lt.data) >= 35 || num(lt.apos) > 0);
@@ -645,7 +648,7 @@ function montarPdf() {
   DIAS.forEach((d) => {
     const rec = recomendado(lt, d), p = lt.pesos[d];
     doc.text(d + " dias", cols[0] + 2, y + 6.5);
-    doc.text(fmt(rec) + " kg", cols[1] + 2, y + 6.5);
+    doc.text(rec > 0 ? fmt(rec) + " kg" : "-", cols[1] + 2, y + 6.5);
     doc.setFont("helvetica", p ? "bold" : "normal"); doc.text(p ? fmt(p) + " kg" : "-", cols[2] + 2, y + 6.5); doc.setFont("helvetica", "normal");
     if (p && rec > 0) {
       const d = dif(p, rec);
